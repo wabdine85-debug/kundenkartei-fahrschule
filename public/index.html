@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kundenkartei Fahrschule</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Kundenkartei Fahrschule</h1>
+    <p class="muted">Schnell suchen · Neu anlegen · Von überall nutzen</p>
+  </header>
+
+  <main class="card">
+    <form id="searchForm">
+      <div class="grid">
+        <div>
+          <label>Vorname</label>
+          <input id="first" type="text" placeholder="z. B. Max" />
+        </div>
+        <div>
+          <label>Nachname</label>
+          <input id="last" type="text" placeholder="z. B. Müller" />
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit">Suchen / Öffnen</button>
+        <button type="button" id="createBtn" class="secondary">Neuen Kunden anlegen</button>
+      </div>
+    </form>
+
+    <div class="stats">
+      <span id="count">–</span> Kunden gesamt
+    </div>
+
+    <div id="results" class="list"></div>
+  </main>
+
+  <footer>© Kundenkartei Fahrschule</footer>
+  <script src="/script.js"></script>
+</body>
+</html>
