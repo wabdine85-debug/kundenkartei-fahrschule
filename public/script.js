@@ -63,14 +63,15 @@ searchForm.addEventListener("submit", async (e) => {
       return;
     }
 
-    resultsDiv.innerHTML = matches
-      .map(c => `
-        <div class="customer">
-          <div class="name">${c.full_name}</div>
-          <button class="openBtn" data-id="${c.id}">Kunde öffnen</button>
-        </div>
-      `)
-      .join("");
+resultsDiv.innerHTML = matches
+  .map(c => `
+    <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
+      <span>${c.full_name}</span>
+      <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
+    </div>
+  `)
+  .join("");
+
 
     // Button-Klick
     document.querySelectorAll(".openBtn").forEach(btn => {
