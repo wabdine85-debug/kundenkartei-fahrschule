@@ -40,17 +40,41 @@ searchForm.addEventListener("submit", async (e) => {
     });
 
     if (matches.length === 0) {
-      resultsDiv.innerHTML = "<p>❌ Kein Kunde gefunden.</p>";
+      resultsDiv.innerHTML = `
+        <p>❌ Kein Kunde gefunden.</p>
+        <button id="createNew">Neuen Kunden '${firstInput.value} ${lastInput.value}' anlegen</button>
+      `;
+      document.getElementById("createNew").addEventListener("click", async () => {
+        const full_name = `${firstInput.value} ${lastInput.value}`.trim();
+        const res = await fetch("/api/customer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ full_name })
+        });
+        const data = await res.json();
+        if (data.created) {
+          alert(`✅ Neuer Kunde '${full_name}' angelegt.`);
+        } else {
+          alert(`ℹ️ Kunde '${full_name}' existiert bereits.`);
+        }
+        loadCount();
+        openCustomer(data.id);
+      });
       return;
     }
 
     resultsDiv.innerHTML = matches
-      .map(c => `<div class="customer" data-id="${c.id}">${c.full_name}</div>`)
+      .map(c => `
+        <div class="customer">
+          <div class="name">${c.full_name}</div>
+          <button class="openBtn" data-id="${c.id}">Kunde öffnen</button>
+        </div>
+      `)
       .join("");
 
-    // Klick auf Kunde
-    document.querySelectorAll(".customer").forEach(div => {
-      div.addEventListener("click", () => openCustomer(div.dataset.id));
+    // Button-Klick
+    document.querySelectorAll(".openBtn").forEach(btn => {
+      btn.addEventListener("click", () => openCustomer(btn.dataset.id));
     });
   } catch (err) {
     resultsDiv.innerHTML = "<p>Fehler bei der Suche.</p>";
@@ -81,32 +105,76 @@ async function openCustomer(id) {
             <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th></tr>
           </thead>
           <tbody>
-            ${data.entries
-              .map(e => `
-                <tr>
-                  <td>${new Date(e.date).toLocaleDateString("de-DE")}</td>
-                  <td>${e.amount}</td>
-                  <td>${e.note || ""}</td>
-                </tr>
-              `)
-              .join("")}
+            ${data.entries.map(e => `
+              <tr>
+                <td>${new Date(e.date).toLocaleDateString("de-DE")}</td>
+                <td>${e.amount.toFixed(2)}</td>
+                <td>${e.note || ""}</td>
+              </tr>
+            `).join("")}
           </tbody>
         </table>
+        <p class="summe"><strong>Gesamtsumme:</strong> ${data.total.toFixed(2)} €</p>
       `;
     } else {
       html += "<p>Keine Einträge vorhanden.</p>";
     }
 
+    // Formular für neuen Eintrag
+    html += `
+      <h3>➕ Neuer Eintrag</h3>
+      <form id="entryForm">
+        <input type="date" id="entryDate" required />
+        <input type="number" step="0.01" id="entryAmount" placeholder="Betrag (€)" required />
+        <input type="text" id="entryNote" placeholder="Notiz (optional)" />
+        <button type="submit">Eintrag speichern</button>
+      </form>
+    `;
+
     resultsDiv.innerHTML = html;
+
+    // Formular-Funktion
+    document.getElementById("entryForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const date = document.getElementById("entryDate").value;
+      const amount = parseFloat(document.getElementById("entryAmount").value);
+      const note = document.getElementById("entryNote").value;
+
+      await fetch("/api/entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_id: id, date, amount, note })
+      });
+
+      alert("✅ Eintrag gespeichert!");
+      openCustomer(id); // neu laden
+    });
+
   } catch (err) {
     console.error(err);
     resultsDiv.innerHTML = "<p>❌ Fehler beim Laden des Kunden.</p>";
   }
 }
 
-// --- Dummy für Neu anlegen (noch nicht aktiv) ---
-createBtn.addEventListener("click", () => {
-  alert("Funktion 'Neuen Kunden anlegen' kommt bald 😊");
+// --- Neuen Kunden anlegen (manuell über Button) ---
+createBtn.addEventListener("click", async () => {
+  const full_name = prompt("Name des neuen Kunden:");
+  if (!full_name) return;
+
+  const res = await fetch("/api/customer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ full_name })
+  });
+  const data = await res.json();
+
+  if (data.created) {
+    alert(`✅ Neuer Kunde '${full_name}' angelegt.`);
+  } else {
+    alert(`ℹ️ Kunde '${full_name}' existiert bereits.`);
+  }
+
+  loadCount();
 });
 
 // --- Initialer Aufruf ---
