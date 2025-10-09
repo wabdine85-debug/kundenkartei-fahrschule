@@ -63,20 +63,21 @@ searchForm.addEventListener("submit", async (e) => {
       return;
     }
 
-resultsDiv.innerHTML = matches
-  .map(c => `
-    <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
-      <span>${c.full_name}</span>
-      <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
-    </div>
-  `)
-  .join("");
+    // Ergebnisse anzeigen mit Button rechts
+    resultsDiv.innerHTML = matches
+      .map(c => `
+        <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
+          <span>${c.full_name}</span>
+          <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
+        </div>
+      `)
+      .join("");
 
-
-    // Button-Klick
+    // Klick-Event für "Kunde öffnen"
     document.querySelectorAll(".openBtn").forEach(btn => {
       btn.addEventListener("click", () => openCustomer(btn.dataset.id));
     });
+
   } catch (err) {
     resultsDiv.innerHTML = "<p>Fehler bei der Suche.</p>";
     console.error(err);
@@ -89,36 +90,41 @@ async function openCustomer(id) {
     const res = await fetch(`/api/customer/${id}`);
     const data = await res.json();
 
-    if (!data.customer) {
+    if (!data || !data.customer) {
       resultsDiv.innerHTML = "<p>❌ Kunde nicht gefunden.</p>";
       return;
     }
+
+    // Sicherheit: Fallbacks für leere oder fehlende Felder
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    const total = data.total ?? 0;
 
     let html = `
       <h2>${data.customer.full_name}</h2>
       <p><strong>ID:</strong> ${data.customer.id}</p>
     `;
 
-    if (data.entries.length > 0) {
+    if (entries.length > 0) {
       html += `
         <table>
           <thead>
             <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th></tr>
           </thead>
           <tbody>
-            ${data.entries.map(e => `
+            ${entries.map(e => `
               <tr>
-                <td>${new Date(e.date).toLocaleDateString("de-DE")}</td>
-                <td>${e.amount.toFixed(2)}</td>
+                <td>${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
+                <td>${Number(e.amount || 0).toFixed(2)}</td>
                 <td>${e.note || ""}</td>
               </tr>
             `).join("")}
           </tbody>
         </table>
-        <p class="summe"><strong>Gesamtsumme:</strong> ${data.total.toFixed(2)} €</p>
+        <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
       `;
     } else {
       html += "<p>Keine Einträge vorhanden.</p>";
+      html += `<p class="summe"><strong>Gesamtsumme:</strong> 0.00 €</p>`;
     }
 
     // Formular für neuen Eintrag
@@ -152,7 +158,7 @@ async function openCustomer(id) {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Fehler in openCustomer:", err);
     resultsDiv.innerHTML = "<p>❌ Fehler beim Laden des Kunden.</p>";
   }
 }
