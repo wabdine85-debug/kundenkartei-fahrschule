@@ -1,65 +1,113 @@
-async function fetchCount() {
-  const r = await fetch('/api/stats/count');
-  const { count } = await r.json();
-  document.getElementById('count').textContent = count;
-}
+// --- Script für Kundenkartei-Fahrschule ---
 
-async function search(first, last) {
-  const params = new URLSearchParams();
-  if (first) params.set('first', first);
-  if (last) params.set('last', last);
-  const r = await fetch('/api/customers?' + params.toString());
-  return await r.json();
-}
+const searchForm = document.getElementById("searchForm");
+const firstInput = document.getElementById("first");
+const lastInput = document.getElementById("last");
+const resultsDiv = document.getElementById("results");
+const countSpan = document.getElementById("count");
+const createBtn = document.getElementById("createBtn");
 
-function renderResults(list) {
-  const el = document.getElementById('results');
-  el.innerHTML = '';
-  if (!list.length) {
-    el.innerHTML = '<div class="muted">Keine Treffer</div>';
-    return;
-  }
-  for (const c of list) {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = `<div>${c.full_name}</div><a href="/kunde.html?id=${c.id}">Öffnen →</a>`;
-    el.appendChild(div);
+// --- Gesamtanzahl laden ---
+async function loadCount() {
+  try {
+    const res = await fetch("/api/customers");
+    const customers = await res.json();
+    countSpan.textContent = customers.length;
+  } catch (err) {
+    console.error("Fehler beim Laden der Kunden:", err);
+    countSpan.textContent = "–";
   }
 }
 
-async function createCustomer(full_name) {
-  const r = await fetch('/api/customers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ full_name })
-  });
-  if (!r.ok) throw new Error('Fehler beim Anlegen');
-  return await r.json();
-}
-
-const form = document.getElementById('searchForm');
-form.addEventListener('submit', async (e) => {
+// --- Suche nach Kunde ---
+searchForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const first = document.getElementById('first').value.trim();
-  const last = document.getElementById('last').value.trim();
-  const list = await search(first, last);
-  renderResults(list);
-  if (!list.length && (first || last)) {
-    const name = [first, last].filter(Boolean).join(' ').trim();
-    if (name && confirm(`Kein Kunde gefunden.\nNeuen Kunden anlegen: \"${name}\"?`)) {
-      const c = await createCustomer(name);
-      location.href = `/kunde.html?id=${c.id}`;
+  const first = firstInput.value.trim().toLowerCase();
+  const last = lastInput.value.trim().toLowerCase();
+
+  resultsDiv.innerHTML = "<p class='muted'>Suche läuft...</p>";
+
+  try {
+    const res = await fetch("/api/customers");
+    const customers = await res.json();
+
+    const matches = customers.filter(c => {
+      const name = c.full_name.toLowerCase();
+      return (
+        (first && name.includes(first)) ||
+        (last && name.includes(last))
+      );
+    });
+
+    if (matches.length === 0) {
+      resultsDiv.innerHTML = "<p>❌ Kein Kunde gefunden.</p>";
+      return;
     }
+
+    resultsDiv.innerHTML = matches
+      .map(c => `<div class="customer" data-id="${c.id}">${c.full_name}</div>`)
+      .join("");
+
+    // Klick auf Kunde
+    document.querySelectorAll(".customer").forEach(div => {
+      div.addEventListener("click", () => openCustomer(div.dataset.id));
+    });
+  } catch (err) {
+    resultsDiv.innerHTML = "<p>Fehler bei der Suche.</p>";
+    console.error(err);
   }
 });
 
-document.getElementById('createBtn').addEventListener('click', async () => {
-  const first = document.getElementById('first').value.trim();
-  const last = document.getElementById('last').value.trim();
-  const name = [first, last].filter(Boolean).join(' ').trim();
-  if (!name) return alert('Bitte Vor- und/oder Nachname eingeben');
-  const c = await createCustomer(name);
-  location.href = `/kunde.html?id=${c.id}`;
+// --- Kunde + Einträge laden ---
+async function openCustomer(id) {
+  try {
+    const res = await fetch(`/api/customer/${id}`);
+    const data = await res.json();
+
+    if (!data.customer) {
+      resultsDiv.innerHTML = "<p>❌ Kunde nicht gefunden.</p>";
+      return;
+    }
+
+    let html = `
+      <h2>${data.customer.full_name}</h2>
+      <p><strong>ID:</strong> ${data.customer.id}</p>
+    `;
+
+    if (data.entries.length > 0) {
+      html += `
+        <table>
+          <thead>
+            <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th></tr>
+          </thead>
+          <tbody>
+            ${data.entries
+              .map(e => `
+                <tr>
+                  <td>${new Date(e.date).toLocaleDateString("de-DE")}</td>
+                  <td>${e.amount}</td>
+                  <td>${e.note || ""}</td>
+                </tr>
+              `)
+              .join("")}
+          </tbody>
+        </table>
+      `;
+    } else {
+      html += "<p>Keine Einträge vorhanden.</p>";
+    }
+
+    resultsDiv.innerHTML = html;
+  } catch (err) {
+    console.error(err);
+    resultsDiv.innerHTML = "<p>❌ Fehler beim Laden des Kunden.</p>";
+  }
+}
+
+// --- Dummy für Neu anlegen (noch nicht aktiv) ---
+createBtn.addEventListener("click", () => {
+  alert("Funktion 'Neuen Kunden anlegen' kommt bald 😊");
 });
 
-fetchCount();
+// --- Initialer Aufruf ---
+loadCount();
