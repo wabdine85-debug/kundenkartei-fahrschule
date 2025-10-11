@@ -108,7 +108,7 @@ async function openCustomer(id) {
       html += `
         <table>
           <thead>
-            <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th></tr>
+            <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th></th></tr>
           </thead>
           <tbody>
             ${entries.map(e => `
@@ -116,6 +116,7 @@ async function openCustomer(id) {
                 <td>${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
                 <td>${Number(e.amount || 0).toFixed(2)}</td>
                 <td>${e.note || ""}</td>
+                <td><button class="delete-btn" data-id="${e.id}">🗑️</button></td>
               </tr>
             `).join("")}
           </tbody>
@@ -140,7 +141,7 @@ async function openCustomer(id) {
 
     resultsDiv.innerHTML = html;
 
-    // Formular-Funktion
+    // --- Formular-Funktion ---
     document.getElementById("entryForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const date = document.getElementById("entryDate").value;
@@ -157,13 +158,27 @@ async function openCustomer(id) {
       openCustomer(id); // neu laden
     });
 
+ // --- Nach dem Rendern: Zurück-Button sofort einfügen ---
+setTimeout(() => {
+  if (!document.getElementById("backBtn")) {
+    const backBtn = document.createElement("button");
+    backBtn.id = "backBtn";
+    backBtn.className = "floating-btn";
+    backBtn.textContent = "⬅️ Zurück zur Startseite";
+    backBtn.onclick = () => window.location.href = "/";
+    document.body.appendChild(backBtn);
+    console.log("✅ Button hinzugefügt!");
+  }
+}, 500); // kleine Verzögerung, bis DOM gerendert ist
+
+
   } catch (err) {
     console.error("Fehler in openCustomer:", err);
     resultsDiv.innerHTML = "<p>❌ Fehler beim Laden des Kunden.</p>";
   }
 }
 
-// --- Neuen Kunden anlegen (manuell über Button) ---
+// --- Neuen Kunden anlegen ---
 createBtn.addEventListener("click", async () => {
   const full_name = prompt("Name des neuen Kunden:");
   if (!full_name) return;
@@ -186,3 +201,64 @@ createBtn.addEventListener("click", async () => {
 
 // --- Initialer Aufruf ---
 loadCount();
+
+// --- Eintrag löschen ---
+document.addEventListener("click", async (event) => {
+  if (event.target.classList.contains("delete-btn")) {
+    const id = event.target.dataset.id;
+    if (confirm("Eintrag wirklich löschen?")) {
+      try {
+        const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) {
+          event.target.closest("tr").remove();
+        } else {
+          alert("Fehler beim Löschen!");
+        }
+      } catch (err) {
+        console.error("Fehler:", err);
+        alert("Verbindungsfehler beim Löschen.");
+      }
+    }
+  }
+});
+// --- Button-Fix: Überwache alle Änderungen im DOM ---
+const observer = new MutationObserver(() => {
+  const entryForm = document.getElementById("entryForm");
+  const backBtn = document.getElementById("backBtn");
+
+  // Wenn Kundenseite aktiv und kein Button vorhanden -> hinzufügen
+  if (entryForm && !backBtn) {
+    const btn = document.createElement("button");
+    btn.id = "backBtn";
+    btn.className = "floating-btn";
+    btn.textContent = "⬅️ Zurück zur Startseite";
+    btn.onclick = () => window.location.href = "/";
+    document.body.appendChild(btn);
+    console.log("✅ Floating-Button automatisch hinzugefügt (über Observer)");
+  }
+});
+
+// DOM-Überwachung starten (reagiert auf dynamische Kundenwechsel)
+observer.observe(document.body, { childList: true, subtree: true });
+console.log("🔍 Script aktiv auf Seite:", window.location.href);
+
+document.addEventListener("click", (e) => {
+  console.log("🖱️ Klick erkannt auf:", e.target);
+});
+
+const observer = new MutationObserver(() => {
+  console.log("👀 DOM verändert – prüfen auf entryForm…");
+  const entryForm = document.getElementById("entryForm");
+  if (entryForm && !document.getElementById("backBtn")) {
+    console.log("✅ entryForm erkannt – Button wird hinzugefügt!");
+    const btn = document.createElement("button");
+    btn.id = "backBtn";
+    btn.className = "floating-btn";
+    btn.textContent = "⬅️ Zurück zur Startseite";
+    btn.onclick = () => window.location.href = "/";
+    document.body.appendChild(btn);
+  }
+});
+
+observer.observe(document.body, { childList: true, subtree: true });

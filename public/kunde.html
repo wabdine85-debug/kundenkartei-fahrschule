@@ -43,7 +43,7 @@
       <h2>Einträge</h2>
       <table id="entries">
         <thead>
-          <tr><th>Datum</th><th>Betrag</th><th>Notiz</th></tr>
+          <tr><th>Datum</th><th>Betrag</th><th>Notiz</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -51,6 +51,22 @@
   </main>
 
   <footer>© Kundenkartei Fahrschule</footer>
-  <script src="/script.js"></script>
+<!-- 🟦 Floating-Button unten rechts -->
+<button id="backBtn" class="floating-btn">⬅️ Zurück zur Startseite</button>
+
+<script>
+  // ⬅️ Wenn der Button geklickt wird, zurück zur Startseite
+  document.addEventListener("DOMContentLoaded", () => {
+    const backBtn = document.getElementById("backBtn");
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        window.location.href = "/";
+      });
+    }
+  });
+</script>
+
+<script src="/script.js"></script>
 </body>
 </html>
+

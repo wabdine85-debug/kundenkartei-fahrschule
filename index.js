@@ -1,10 +1,12 @@
 import express from "express";
-import pkg from "pg";
+import pkg from "pg";                // PostgreSQL-Paket
+const { Pool } = pkg;                // Pool extrahieren
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
 dotenv.config();
+console.log("📦 Datenbank-URL erkannt:", process.env.DATABASE_URL ? "✅ ja" : "❌ nein");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,11 +14,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// PostgreSQL-Verbindung
-const { Pool } = pkg;
+// --- PostgreSQL-Verbindung ---
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.RENDER ? { rejectUnauthorized: false } : false,
+  ssl: { rejectUnauthorized: false } // SSL aktiviert für Render & lokal
 });
 
 // --- Static files (Frontend) ---
@@ -46,10 +47,20 @@ app.get("/api/customer/:id", async (req, res) => {
     }
 
     // Einträge laden
-    const entriesResult = await pool.query(
-      "SELECT date, amount, note FROM entries WHERE customer_id = $1 ORDER BY date DESC",
-      [id]
-    );
+  const entriesResult = await pool.query(
+  "SELECT id, date, amount, note FROM entries WHERE customer_id = $1 ORDER BY date DESC",
+  [id]
+);
+
+
+    // Leere oder null-Notizen entfernen und trimmen
+  const cleanedEntries = entriesResult.rows.map(e => ({
+  id: e.id,            // 👈 wichtig!
+  date: e.date,
+  amount: e.amount,
+  note: e.note && typeof e.note === "string" ? e.note.trim() : ""
+}));
+
 
     // Gesamtsumme berechnen
     const sumResult = await pool.query(
@@ -60,7 +71,7 @@ app.get("/api/customer/:id", async (req, res) => {
     // Daten zurückgeben
     res.json({
       customer: customerResult.rows[0],
-      entries: entriesResult.rows,
+      entries: cleanedEntries,
       total: sumResult.rows[0].total,
     });
   } catch (err) {
@@ -68,7 +79,6 @@ app.get("/api/customer/:id", async (req, res) => {
     res.status(500).json({ error: "Serverfehler" });
   }
 });
-
 
 // --- Startseite ---
 app.get("/", (req, res) => {
@@ -102,17 +112,32 @@ app.post("/api/customer", async (req, res) => {
 app.post("/api/entry", async (req, res) => {
   try {
     const { customer_id, date, amount, note } = req.body;
+
+    // Leere oder doppelte Notizen vermeiden
+    const cleanNote = note && note.trim().length > 0 ? note.trim() : null;
+
     await pool.query(
       "INSERT INTO entries (customer_id, date, amount, note) VALUES ($1,$2,$3,$4)",
-      [customer_id, date, amount, note]
+      [customer_id, date, amount, cleanNote]
     );
+
     res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Fehler beim Speichern des Eintrags" });
   }
 });
-
+// --- Eintrag löschen ---
+app.delete("/api/entry/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM entries WHERE id = $1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Fehler beim Löschen des Eintrags:", err.message);
+    res.status(500).json({ error: "Fehler beim Löschen" });
+  }
+});
 
 // --- Server starten ---
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
