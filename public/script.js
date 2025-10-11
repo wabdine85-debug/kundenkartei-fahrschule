@@ -33,10 +33,7 @@ searchForm.addEventListener("submit", async (e) => {
 
     const matches = customers.filter(c => {
       const name = c.full_name.toLowerCase();
-      return (
-        (first && name.includes(first)) ||
-        (last && name.includes(last))
-      );
+      return (first && name.includes(first)) || (last && name.includes(last));
     });
 
     if (matches.length === 0) {
@@ -63,21 +60,17 @@ searchForm.addEventListener("submit", async (e) => {
       return;
     }
 
-    // Ergebnisse anzeigen mit Button rechts
-    resultsDiv.innerHTML = matches
-      .map(c => `
-        <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
-          <span>${c.full_name}</span>
-          <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
-        </div>
-      `)
-      .join("");
+    // Ergebnisse anzeigen
+    resultsDiv.innerHTML = matches.map(c => `
+      <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
+        <span>${c.full_name}</span>
+        <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
+      </div>
+    `).join("");
 
-    // Klick-Event für "Kunde öffnen"
     document.querySelectorAll(".openBtn").forEach(btn => {
       btn.addEventListener("click", () => openCustomer(btn.dataset.id));
     });
-
   } catch (err) {
     resultsDiv.innerHTML = "<p>Fehler bei der Suche.</p>";
     console.error(err);
@@ -95,7 +88,6 @@ async function openCustomer(id) {
       return;
     }
 
-    // Sicherheit: Fallbacks für leere oder fehlende Felder
     const entries = Array.isArray(data.entries) ? data.entries : [];
     const total = data.total ?? 0;
 
@@ -141,7 +133,7 @@ async function openCustomer(id) {
 
     resultsDiv.innerHTML = html;
 
-    // --- Formular-Funktion ---
+    // Eintrag speichern
     document.getElementById("entryForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const date = document.getElementById("entryDate").value;
@@ -155,22 +147,8 @@ async function openCustomer(id) {
       });
 
       alert("✅ Eintrag gespeichert!");
-      openCustomer(id); // neu laden
+      openCustomer(id);
     });
-
- // --- Nach dem Rendern: Zurück-Button sofort einfügen ---
-setTimeout(() => {
-  if (!document.getElementById("backBtn")) {
-    const backBtn = document.createElement("button");
-    backBtn.id = "backBtn";
-    backBtn.className = "floating-btn";
-    backBtn.textContent = "⬅️ Zurück zur Startseite";
-    backBtn.onclick = () => window.location.href = "/";
-    document.body.appendChild(backBtn);
-    console.log("✅ Button hinzugefügt!");
-  }
-}, 500); // kleine Verzögerung, bis DOM gerendert ist
-
 
   } catch (err) {
     console.error("Fehler in openCustomer:", err);
@@ -178,7 +156,7 @@ setTimeout(() => {
   }
 }
 
-// --- Neuen Kunden anlegen ---
+// --- Kunden anlegen ---
 createBtn.addEventListener("click", async () => {
   const full_name = prompt("Name des neuen Kunden:");
   if (!full_name) return;
@@ -198,9 +176,6 @@ createBtn.addEventListener("click", async () => {
 
   loadCount();
 });
-
-// --- Initialer Aufruf ---
-loadCount();
 
 // --- Eintrag löschen ---
 document.addEventListener("click", async (event) => {
@@ -222,12 +197,12 @@ document.addEventListener("click", async (event) => {
     }
   }
 });
-// --- Button-Fix: Überwache alle Änderungen im DOM ---
+
+// --- Floating "Zurück zur Startseite"-Button ---
 const observer = new MutationObserver(() => {
   const entryForm = document.getElementById("entryForm");
   const backBtn = document.getElementById("backBtn");
 
-  // Wenn Kundenseite aktiv und kein Button vorhanden -> hinzufügen
   if (entryForm && !backBtn) {
     const btn = document.createElement("button");
     btn.id = "backBtn";
@@ -235,30 +210,12 @@ const observer = new MutationObserver(() => {
     btn.textContent = "⬅️ Zurück zur Startseite";
     btn.onclick = () => window.location.href = "/";
     document.body.appendChild(btn);
-    console.log("✅ Floating-Button automatisch hinzugefügt (über Observer)");
-  }
-});
-
-// DOM-Überwachung starten (reagiert auf dynamische Kundenwechsel)
-observer.observe(document.body, { childList: true, subtree: true });
-console.log("🔍 Script aktiv auf Seite:", window.location.href);
-
-document.addEventListener("click", (e) => {
-  console.log("🖱️ Klick erkannt auf:", e.target);
-});
-
-const observer = new MutationObserver(() => {
-  console.log("👀 DOM verändert – prüfen auf entryForm…");
-  const entryForm = document.getElementById("entryForm");
-  if (entryForm && !document.getElementById("backBtn")) {
-    console.log("✅ entryForm erkannt – Button wird hinzugefügt!");
-    const btn = document.createElement("button");
-    btn.id = "backBtn";
-    btn.className = "floating-btn";
-    btn.textContent = "⬅️ Zurück zur Startseite";
-    btn.onclick = () => window.location.href = "/";
-    document.body.appendChild(btn);
+    console.log("✅ Floating-Button hinzugefügt");
   }
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
+
+// --- Initialisierung ---
+loadCount();
+console.log("🔍 Script aktiv:", window.location.href);
