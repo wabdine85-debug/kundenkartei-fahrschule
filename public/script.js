@@ -91,44 +91,50 @@ async function openCustomer(id) {
     const entries = Array.isArray(data.entries) ? data.entries : [];
     const total = data.total ?? 0;
 
-    // --- Kopfbereich mit Name + Bearbeiten/Löschen ---
-    let html = `
-      <h2>
-        <span id="customerName">${data.customer.full_name}</span>
-        <button id="editCustomerBtn">✏️</button>
-        <button id="saveCustomerBtn" style="display:none;">💾</button>
-        <button id="cancelCustomerBtn" style="display:none;">❌</button>
-      </h2>
-      <p><strong>ID:</strong> ${data.customer.id}</p>
-      <button id="deleteCustomerBtn" class="danger-btn">🗑️ Kunden löschen</button>
-    `;
+ // --- Kopfbereich mit Name + Bearbeiten/Löschen ---
+let html = `
+  <h2>
+    <span id="customerName" data-id="${data.customer.id}">
+      ${data.customer.full_name}
+    </span>
+    <button id="editCustomerBtn">✏️</button>
+    <button id="saveCustomerBtn" style="display:none;">💾</button>
+    <button id="cancelCustomerBtn" style="display:none;">❌</button>
+  </h2>
+  <p><strong>ID:</strong> ${data.customer.id}</p>
+  <button id="deleteCustomerBtn" class="danger-btn">🗑️ Kunden löschen</button>
+`;
 
-    // --- Tabelle der Einträge ---
-    if (entries.length > 0) {
-      html += `
-        <table>
-          <thead>
-            <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th></th></tr>
-          </thead>
-          <tbody>
-            ${entries.map(e => `
-              <tr>
-                <td>${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
-                <td>${Number(e.amount || 0).toFixed(2)}</td>
-                <td>${e.note || ""}</td>
-                <td><button class="delete-btn" data-id="${e.id}">🗑️</button></td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-        <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
-      `;
-    } else {
-      html += `
-        <p>Keine Einträge vorhanden.</p>
-        <p class="summe"><strong>Gesamtsumme:</strong> 0.00 €</p>
-      `;
-    }
+// --- Tabelle der Einträge ---
+if (entries.length > 0) {
+  html += `
+    <table>
+      <thead>
+        <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th></th></tr>
+      </thead>
+      <tbody>
+        ${entries.map(e => `
+          <tr data-id="${e.id}">
+            <td class="editable date">${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
+            <td class="editable amount">${Number(e.amount || 0).toFixed(2)}</td>
+            <td class="editable note">${e.note || ""}</td>
+            <td>
+              <button class="edit-entry">✏️</button>
+              <button class="delete-btn" data-id="${e.id}">🗑️</button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+    <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
+  `;
+} else {
+  html += `
+    <p>Keine Einträge vorhanden.</p>
+    <p class="summe"><strong>Gesamtsumme:</strong> 0.00 €</p>
+  `;
+}
+
 
     // --- Formular für neuen Eintrag ---
     html += `
@@ -302,46 +308,66 @@ document.addEventListener("click", async (e) => {
       cell.innerHTML = `<input type="text" value="${oldValue}" />`;
     });
 
-    // Buttons austauschen
-    e.target.outerHTML = `<button class="save-entry">💾</button><button class="cancel-entry">❌</button>`;
+    // Buttons austauschen (Bearbeiten -> Speichern + Abbrechen)
+    e.target.outerHTML = `
+      <button class="save-entry">💾</button>
+      <button class="cancel-entry">❌</button>
+    `;
   }
 
   // --- Änderungen speichern ---
   if (e.target.classList.contains("save-entry")) {
     const inputs = row.querySelectorAll("input");
+    if (inputs.length < 3) return alert("Fehler: unvollständige Eingaben.");
+
     const [dateInput, amountInput, noteInput] = inputs;
 
-    // Datum umwandeln in ISO
+    // Datum umwandeln (TT.MM.JJJJ → ISO)
     const parts = dateInput.value.split(".");
-    const isoDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateInput.value;
+    const isoDate =
+      parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateInput.value;
 
     const updated = {
       date: isoDate,
       amount: parseFloat(amountInput.value),
-      note: noteInput.value
+      note: noteInput.value.trim(),
     };
 
-    await fetch(`/api/entry/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated)
-    });
+    try {
+      const res = await fetch(`/api/entry/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
 
-    // Neue Werte anzeigen
-    row.querySelector(".date").textContent = new Date(updated.date).toLocaleDateString("de-DE");
-    row.querySelector(".amount").textContent = updated.amount.toFixed(2);
-    row.querySelector(".note").textContent = updated.note;
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Update fehlgeschlagen.");
 
-    // Buttons wiederherstellen
-    row.querySelector(".save-entry").outerHTML = `<button class="edit-entry">✏️</button>`;
-    const cancelBtn = row.querySelector(".cancel-entry");
-    if (cancelBtn) cancelBtn.remove();
+      // Neue Werte anzeigen
+      row.querySelector(".date").textContent = new Date(updated.date).toLocaleDateString("de-DE");
+      row.querySelector(".amount").textContent = updated.amount.toFixed(2);
+      row.querySelector(".note").textContent = updated.note;
+
+      // Buttons wiederherstellen
+      row.querySelector(".save-entry").outerHTML = `<button class="edit-entry">✏️</button>`;
+      const cancelBtn = row.querySelector(".cancel-entry");
+      if (cancelBtn) cancelBtn.remove();
+    } catch (err) {
+      console.error("Fehler beim Speichern:", err);
+      alert("❌ Fehler beim Speichern des Eintrags.");
+    }
   }
 
   // --- Bearbeitung abbrechen ---
   if (e.target.classList.contains("cancel-entry")) {
-    const customerId = document.querySelector("p strong + span, h2 + p strong + span")?.textContent || "";
-    openCustomer(customerId);
+    try {
+      const customerId = document.querySelector("#customerName")?.dataset.id;
+      if (customerId) openCustomer(customerId);
+      else console.warn("Kunden-ID nicht gefunden – Abbruch übersprungen.");
+    } catch (err) {
+      console.error("Fehler beim Abbrechen:", err);
+    }
   }
 });
+
 
