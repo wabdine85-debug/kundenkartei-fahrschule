@@ -191,3 +191,8 @@ th {
   background: #1959d1;
   transform: translateY(-2px);
 }
+table td input {
+  width: 90%;
+  padding: 2px 4px;
+  font-size: 14px;
+}

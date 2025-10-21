@@ -103,15 +103,19 @@ async function openCustomer(id) {
             <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th></th></tr>
           </thead>
           <tbody>
-            ${entries.map(e => `
-              <tr>
-                <td>${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
-                <td>${Number(e.amount || 0).toFixed(2)}</td>
-                <td>${e.note || ""}</td>
-                <td><button class="delete-btn" data-id="${e.id}">🗑️</button></td>
-              </tr>
-            `).join("")}
-          </tbody>
+  ${entries.map(e => `
+    <tr data-id="${e.id}">
+      <td class="editable date">${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
+      <td class="editable amount">${Number(e.amount || 0).toFixed(2)}</td>
+      <td class="editable note">${e.note || ""}</td>
+      <td>
+        <button class="edit-entry">✏️</button>
+        <button class="delete-btn" data-id="${e.id}">🗑️</button>
+      </td>
+    </tr>
+  `).join("")}
+</tbody>
+
         </table>
         <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
       `;
@@ -219,3 +223,61 @@ observer.observe(document.body, { childList: true, subtree: true });
 // --- Initialisierung ---
 loadCount();
 console.log("🔍 Script aktiv:", window.location.href);
+
+// --- Inline-Bearbeitung für Einträge ---
+document.addEventListener("click", async (e) => {
+  const row = e.target.closest("tr");
+  if (!row) return;
+  const id = row.dataset.id;
+
+  // --- Bearbeiten aktivieren ---
+  if (e.target.classList.contains("edit-entry")) {
+    const cells = row.querySelectorAll(".editable");
+    cells.forEach((cell) => {
+      const oldValue = cell.textContent.trim();
+      cell.innerHTML = `<input type="text" value="${oldValue}" />`;
+    });
+
+    // Buttons austauschen
+    e.target.outerHTML = `<button class="save-entry">💾</button><button class="cancel-entry">❌</button>`;
+  }
+
+  // --- Änderungen speichern ---
+  if (e.target.classList.contains("save-entry")) {
+    const inputs = row.querySelectorAll("input");
+    const [dateInput, amountInput, noteInput] = inputs;
+
+    // Datum umwandeln in ISO
+    const parts = dateInput.value.split(".");
+    const isoDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateInput.value;
+
+    const updated = {
+      date: isoDate,
+      amount: parseFloat(amountInput.value),
+      note: noteInput.value
+    };
+
+    await fetch(`/api/entry/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated)
+    });
+
+    // Neue Werte anzeigen
+    row.querySelector(".date").textContent = new Date(updated.date).toLocaleDateString("de-DE");
+    row.querySelector(".amount").textContent = updated.amount.toFixed(2);
+    row.querySelector(".note").textContent = updated.note;
+
+    // Buttons wiederherstellen
+    row.querySelector(".save-entry").outerHTML = `<button class="edit-entry">✏️</button>`;
+    const cancelBtn = row.querySelector(".cancel-entry");
+    if (cancelBtn) cancelBtn.remove();
+  }
+
+  // --- Bearbeitung abbrechen ---
+  if (e.target.classList.contains("cancel-entry")) {
+    const customerId = document.querySelector("p strong + span, h2 + p strong + span")?.textContent || "";
+    openCustomer(customerId);
+  }
+});
+
