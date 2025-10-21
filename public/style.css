@@ -196,3 +196,33 @@ table td input {
   padding: 2px 4px;
   font-size: 14px;
 }
+/* --- Stil für Tabellen-Buttons (Bearbeiten, Speichern, Löschen) --- */
+table button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 6px;
+  margin: 0 2px;
+  line-height: 1;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+/* leichte Hover-Wirkung */
+table button:hover {
+  background: #f0f0f0;
+  border-radius: 6px;
+  transform: scale(1.1);
+}
+
+/* Icons etwas absetzen */
+table button:active {
+  transform: scale(0.95);
+}
+
+/* Fokusrahmen (blauer Rand) entfernen */
+table button:focus {
+  outline: none;
+  box-shadow: none;
+}
+
