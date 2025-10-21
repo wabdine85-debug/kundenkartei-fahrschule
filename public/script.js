@@ -91,11 +91,19 @@ async function openCustomer(id) {
     const entries = Array.isArray(data.entries) ? data.entries : [];
     const total = data.total ?? 0;
 
+    // --- Kopfbereich mit Name + Bearbeiten/Löschen ---
     let html = `
-      <h2>${data.customer.full_name}</h2>
+      <h2>
+        <span id="customerName">${data.customer.full_name}</span>
+        <button id="editCustomerBtn">✏️</button>
+        <button id="saveCustomerBtn" style="display:none;">💾</button>
+        <button id="cancelCustomerBtn" style="display:none;">❌</button>
+      </h2>
       <p><strong>ID:</strong> ${data.customer.id}</p>
+      <button id="deleteCustomerBtn" class="danger-btn">🗑️ Kunden löschen</button>
     `;
 
+    // --- Tabelle der Einträge ---
     if (entries.length > 0) {
       html += `
         <table>
@@ -103,28 +111,26 @@ async function openCustomer(id) {
             <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th></th></tr>
           </thead>
           <tbody>
-  ${entries.map(e => `
-    <tr data-id="${e.id}">
-      <td class="editable date">${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
-      <td class="editable amount">${Number(e.amount || 0).toFixed(2)}</td>
-      <td class="editable note">${e.note || ""}</td>
-      <td>
-        <button class="edit-entry">✏️</button>
-        <button class="delete-btn" data-id="${e.id}">🗑️</button>
-      </td>
-    </tr>
-  `).join("")}
-</tbody>
-
+            ${entries.map(e => `
+              <tr>
+                <td>${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
+                <td>${Number(e.amount || 0).toFixed(2)}</td>
+                <td>${e.note || ""}</td>
+                <td><button class="delete-btn" data-id="${e.id}">🗑️</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
         </table>
         <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
       `;
     } else {
-      html += "<p>Keine Einträge vorhanden.</p>";
-      html += `<p class="summe"><strong>Gesamtsumme:</strong> 0.00 €</p>`;
+      html += `
+        <p>Keine Einträge vorhanden.</p>
+        <p class="summe"><strong>Gesamtsumme:</strong> 0.00 €</p>
+      `;
     }
 
-    // Formular für neuen Eintrag
+    // --- Formular für neuen Eintrag ---
     html += `
       <h3>➕ Neuer Eintrag</h3>
       <form id="entryForm">
@@ -137,7 +143,7 @@ async function openCustomer(id) {
 
     resultsDiv.innerHTML = html;
 
-    // Eintrag speichern
+    // --- Neuen Eintrag speichern ---
     document.getElementById("entryForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const date = document.getElementById("entryDate").value;
@@ -153,6 +159,64 @@ async function openCustomer(id) {
       alert("✅ Eintrag gespeichert!");
       openCustomer(id);
     });
+
+    // --- Kundenname bearbeiten ---
+    const editBtn = document.getElementById("editCustomerBtn");
+    const saveBtn = document.getElementById("saveCustomerBtn");
+    const cancelBtn = document.getElementById("cancelCustomerBtn");
+    const nameSpan = document.getElementById("customerName");
+
+    if (editBtn) {
+      editBtn.addEventListener("click", () => {
+        const current = nameSpan.textContent.trim();
+        nameSpan.innerHTML = `<input id="editCustomerName" type="text" value="${current}" />`;
+        editBtn.style.display = "none";
+        saveBtn.style.display = "inline";
+        cancelBtn.style.display = "inline";
+      });
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener("click", async () => {
+        const newName = document.getElementById("editCustomerName").value.trim();
+        if (!newName) return alert("Name darf nicht leer sein.");
+
+        await fetch(`/api/customer/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ full_name: newName })
+        });
+
+        alert("✅ Name aktualisiert!");
+        openCustomer(id);
+      });
+    }
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", () => openCustomer(id));
+    }
+
+    // --- Kunden löschen ---
+    const deleteCustomerBtn = document.getElementById("deleteCustomerBtn");
+    if (deleteCustomerBtn) {
+      deleteCustomerBtn.addEventListener("click", async () => {
+        if (!confirm("Diesen Kunden inklusive aller Einträge wirklich löschen?")) return;
+
+        try {
+          const res = await fetch(`/api/customer/${id}`, { method: "DELETE" });
+          const data = await res.json();
+          if (data.success) {
+            alert("✅ Kunde wurde gelöscht.");
+            window.location.href = "/";
+          } else {
+            alert("Fehler beim Löschen!");
+          }
+        } catch (err) {
+          console.error("Fehler beim Löschen des Kunden:", err);
+          alert("Verbindungsfehler beim Löschen des Kunden.");
+        }
+      });
+    }
 
   } catch (err) {
     console.error("Fehler in openCustomer:", err);
