@@ -47,20 +47,18 @@ app.get("/api/customer/:id", async (req, res) => {
     }
 
     // Einträge laden
-  const entriesResult = await pool.query(
-  "SELECT id, date, amount, note FROM entries WHERE customer_id = $1 ORDER BY date DESC",
-  [id]
-);
+    const entriesResult = await pool.query(
+      "SELECT id, date, amount, note FROM entries WHERE customer_id = $1 ORDER BY date DESC",
+      [id]
+    );
 
-
-    // Leere oder null-Notizen entfernen und trimmen
-  const cleanedEntries = entriesResult.rows.map(e => ({
-  id: e.id,            // 👈 wichtig!
-  date: e.date,
-  amount: e.amount,
-  note: e.note && typeof e.note === "string" ? e.note.trim() : ""
-}));
-
+    // Notizen säubern
+    const cleanedEntries = entriesResult.rows.map(e => ({
+      id: e.id,
+      date: e.date,
+      amount: e.amount,
+      note: e.note && typeof e.note === "string" ? e.note.trim() : ""
+    }));
 
     // Gesamtsumme berechnen
     const sumResult = await pool.query(
@@ -68,7 +66,7 @@ app.get("/api/customer/:id", async (req, res) => {
       [id]
     );
 
-    // Daten zurückgeben
+    // Antwort
     res.json({
       customer: customerResult.rows[0],
       entries: cleanedEntries,
@@ -108,12 +106,39 @@ app.post("/api/customer", async (req, res) => {
   }
 });
 
+// --- Kundennamen aktualisieren (PUT) ---
+app.put("/api/customer/:id", async (req, res) => {
+  const { id } = req.params;
+  const { full_name } = req.body;
+
+  try {
+    await pool.query("UPDATE customers SET full_name = $1 WHERE id = $2", [full_name, id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Fehler beim Aktualisieren des Kunden:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- Kunden & Einträge löschen (DELETE) ---
+app.delete("/api/customer/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await pool.query("DELETE FROM entries WHERE customer_id = $1", [id]);
+    await pool.query("DELETE FROM customers WHERE id = $1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Fehler beim Löschen des Kunden:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // --- Neuen Eintrag hinzufügen ---
 app.post("/api/entry", async (req, res) => {
   try {
     const { customer_id, date, amount, note } = req.body;
 
-    // Leere oder doppelte Notizen vermeiden
     const cleanNote = note && note.trim().length > 0 ? note.trim() : null;
 
     await pool.query(
@@ -127,6 +152,7 @@ app.post("/api/entry", async (req, res) => {
     res.status(500).json({ error: "Fehler beim Speichern des Eintrags" });
   }
 });
+
 // --- Eintrag löschen ---
 app.delete("/api/entry/:id", async (req, res) => {
   try {
