@@ -134,6 +134,36 @@ app.delete("/api/customer/:id", async (req, res) => {
   }
 });
 
+// --- Eintrag bearbeiten (PUT) ---
+app.put("/api/entry/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, amount, note } = req.body;
+
+    // Eingaben prüfen
+    if (!id || !date || isNaN(amount)) {
+      return res.status(400).json({ success: false, error: "Ungültige Daten" });
+    }
+
+    const cleanNote = note && note.trim().length > 0 ? note.trim() : null;
+
+    const result = await pool.query(
+      "UPDATE entries SET date = $1, amount = $2, note = $3 WHERE id = $4 RETURNING *",
+      [date, amount, cleanNote, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: "Eintrag nicht gefunden" });
+    }
+
+    res.json({ success: true, entry: result.rows[0] });
+  } catch (err) {
+    console.error("Fehler beim Aktualisieren des Eintrags:", err.message);
+    res.status(500).json({ success: false, error: "Serverfehler beim Aktualisieren" });
+  }
+});
+
+
 // --- Neuen Eintrag hinzufügen ---
 app.post("/api/entry", async (req, res) => {
   try {
