@@ -163,8 +163,21 @@ async function openCustomer(id) {
         <button type="submit">Eintrag speichern</button>
       </form>
     `;
+    // --- Zurück-Button ---
+html += `
+  <div style="margin-top:20px; text-align:center;">
+    <button id="backBtn" class="secondary" style="padding:6px 12px;">
+      ⬅️ Zurück zur Startseite
+    </button>
+  </div>
+`;
+
 
     resultsDiv.innerHTML = html;
+// --- Zurück zur Startseite ---
+document.getElementById("backBtn").addEventListener("click", () => {
+  window.location.href = "/";
+});
 
     // --- Neuen Eintrag speichern ---
     document.getElementById("entryForm").addEventListener("submit", async (e) => {
