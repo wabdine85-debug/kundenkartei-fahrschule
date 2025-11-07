@@ -151,8 +151,15 @@ async function openCustomer(id) {
         <input type="number" step="0.01" id="entryAmount" placeholder="Betrag (€)" required />
         <input type="text" id="entryNote" placeholder="Notiz (optional)" />
         <select id="entryInstructor">
-          ${instructors.map(f => `<option value="${f.id}">${f.name}</option>`).join("")}
-        </select>
+  ${instructors
+    .sort((a, b) => (a.name === "k.A." ? 1 : b.name === "k.A." ? -1 : 0))
+    .map(f => {
+      const selected = f.name === "k.A." ? "selected" : "";
+      return `<option value="${f.id}" ${selected}>${f.name}</option>`;
+    })
+    .join("")}
+</select>
+
         <button type="submit">Eintrag speichern</button>
       </form>
     `;
