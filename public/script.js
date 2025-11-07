@@ -7,6 +7,18 @@ const resultsDiv = document.getElementById("results");
 const countSpan = document.getElementById("count");
 const createBtn = document.getElementById("createBtn");
 
+let instructors = [];
+
+// --- Fahrlehrer laden ---
+async function loadInstructors() {
+  try {
+    const res = await fetch("/api/instructors");
+    instructors = await res.json();
+  } catch (err) {
+    console.error("Fehler beim Laden der Fahrlehrer:", err);
+  }
+}
+
 // --- Gesamtanzahl laden ---
 async function loadCount() {
   try {
@@ -80,6 +92,7 @@ searchForm.addEventListener("submit", async (e) => {
 // --- Kunde + Einträge laden ---
 async function openCustomer(id) {
   try {
+    await loadInstructors();
     const res = await fetch(`/api/customer/${id}`);
     const data = await res.json();
 
@@ -91,50 +104,44 @@ async function openCustomer(id) {
     const entries = Array.isArray(data.entries) ? data.entries : [];
     const total = data.total ?? 0;
 
- // --- Kopfbereich mit Name + Bearbeiten/Löschen ---
-let html = `
-  <h2>
-    <span id="customerName" data-id="${data.customer.id}">
-      ${data.customer.full_name}
-    </span>
-    <button id="editCustomerBtn">✏️</button>
-    <button id="saveCustomerBtn" style="display:none;">💾</button>
-    <button id="cancelCustomerBtn" style="display:none;">❌</button>
-  </h2>
-  <p><strong>ID:</strong> ${data.customer.id}</p>
-  <button id="deleteCustomerBtn" class="danger-btn">🗑️ Kunden löschen</button>
-`;
+    let html = `
+      <h2>
+        <span id="customerName" data-id="${data.customer.id}">
+          ${data.customer.full_name}
+        </span>
+        <button id="editCustomerBtn">✏️</button>
+        <button id="saveCustomerBtn" style="display:none;">💾</button>
+        <button id="cancelCustomerBtn" style="display:none;">❌</button>
+      </h2>
+      <p><strong>ID:</strong> ${data.customer.id}</p>
+      <button id="deleteCustomerBtn" class="danger-btn">🗑️ Kunden löschen</button>
+    `;
 
-// --- Tabelle der Einträge ---
-if (entries.length > 0) {
-  html += `
-    <table>
-      <thead>
-        <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th></th></tr>
-      </thead>
-      <tbody>
-        ${entries.map(e => `
-          <tr data-id="${e.id}">
-            <td class="editable date">${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
-            <td class="editable amount">${Number(e.amount || 0).toFixed(2)}</td>
-            <td class="editable note">${e.note || ""}</td>
-            <td>
-              <button class="edit-entry">✏️</button>
-              <button class="delete-btn" data-id="${e.id}">🗑️</button>
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-    <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
-  `;
-} else {
-  html += `
-    <p>Keine Einträge vorhanden.</p>
-    <p class="summe"><strong>Gesamtsumme:</strong> 0.00 €</p>
-  `;
-}
-
+    // --- Tabelle der Einträge ---
+    html += `
+      <table>
+        <thead>
+          <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th>Fahrlehrer</th><th></th></tr>
+        </thead>
+        <tbody>
+          ${entries.map(e => `
+            <tr data-id="${e.id}">
+              <td class="editable date">${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
+              <td class="editable amount">${Number(e.amount || 0).toFixed(2)}</td>
+              <td class="editable note">${e.note || ""}</td>
+              <td class="editable fahrlehrer" data-f="${e.fahrlehrer_id || 1}">
+                ${(instructors.find(f => f.id === e.fahrlehrer_id)?.name) || "k.A."}
+              </td>
+              <td>
+                <button class="edit-entry">✏️</button>
+                <button class="delete-btn" data-id="${e.id}">🗑️</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+      <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
+    `;
 
     // --- Formular für neuen Eintrag ---
     html += `
@@ -143,6 +150,9 @@ if (entries.length > 0) {
         <input type="date" id="entryDate" required />
         <input type="number" step="0.01" id="entryAmount" placeholder="Betrag (€)" required />
         <input type="text" id="entryNote" placeholder="Notiz (optional)" />
+        <select id="entryInstructor">
+          ${instructors.map(f => `<option value="${f.id}">${f.name}</option>`).join("")}
+        </select>
         <button type="submit">Eintrag speichern</button>
       </form>
     `;
@@ -155,14 +165,14 @@ if (entries.length > 0) {
       const date = document.getElementById("entryDate").value;
       const amount = parseFloat(document.getElementById("entryAmount").value);
       const note = document.getElementById("entryNote").value;
+      const fahrlehrer_id = parseInt(document.getElementById("entryInstructor").value, 10);
 
       await fetch("/api/entry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer_id: id, date, amount, note })
+        body: JSON.stringify({ customer_id: id, date, amount, note, fahrlehrer_id })
       });
 
-      alert("✅ Eintrag gespeichert!");
       openCustomer(id);
     });
 
@@ -172,202 +182,118 @@ if (entries.length > 0) {
     const cancelBtn = document.getElementById("cancelCustomerBtn");
     const nameSpan = document.getElementById("customerName");
 
-    if (editBtn) {
-      editBtn.addEventListener("click", () => {
-        const current = nameSpan.textContent.trim();
-        nameSpan.innerHTML = `<input id="editCustomerName" type="text" value="${current}" />`;
-        editBtn.style.display = "none";
-        saveBtn.style.display = "inline";
-        cancelBtn.style.display = "inline";
+    editBtn.addEventListener("click", () => {
+      const current = nameSpan.textContent.trim();
+      nameSpan.innerHTML = `<input id="editCustomerName" type="text" value="${current}" />`;
+      editBtn.style.display = "none";
+      saveBtn.style.display = "inline";
+      cancelBtn.style.display = "inline";
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      const newName = document.getElementById("editCustomerName").value.trim();
+      if (!newName) return alert("Name darf nicht leer sein.");
+
+      await fetch(`/api/customer/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: newName })
       });
-    }
 
-    if (saveBtn) {
-      saveBtn.addEventListener("click", async () => {
-        const newName = document.getElementById("editCustomerName").value.trim();
-        if (!newName) return alert("Name darf nicht leer sein.");
+      openCustomer(id);
+    });
 
-        await fetch(`/api/customer/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ full_name: newName })
-        });
-
-        alert("✅ Name aktualisiert!");
-        openCustomer(id);
-      });
-    }
-
-    if (cancelBtn) {
-      cancelBtn.addEventListener("click", () => openCustomer(id));
-    }
+    cancelBtn.addEventListener("click", () => openCustomer(id));
 
     // --- Kunden löschen ---
-    const deleteCustomerBtn = document.getElementById("deleteCustomerBtn");
-    if (deleteCustomerBtn) {
-      deleteCustomerBtn.addEventListener("click", async () => {
-        if (!confirm("Diesen Kunden inklusive aller Einträge wirklich löschen?")) return;
+    document.getElementById("deleteCustomerBtn").addEventListener("click", async () => {
+      if (!confirm("Diesen Kunden inklusive aller Einträge wirklich löschen?")) return;
 
-        try {
-          const res = await fetch(`/api/customer/${id}`, { method: "DELETE" });
-          const data = await res.json();
-          if (data.success) {
-            alert("✅ Kunde wurde gelöscht.");
-            window.location.href = "/";
-          } else {
-            alert("Fehler beim Löschen!");
-          }
-        } catch (err) {
-          console.error("Fehler beim Löschen des Kunden:", err);
-          alert("Verbindungsfehler beim Löschen des Kunden.");
-        }
-      });
-    }
+      await fetch(`/api/customer/${id}`, { method: "DELETE" });
+      window.location.href = "/";
+    });
 
   } catch (err) {
-    console.error("Fehler in openCustomer:", err);
     resultsDiv.innerHTML = "<p>❌ Fehler beim Laden des Kunden.</p>";
+    console.error("Fehler in openCustomer:", err);
   }
 }
-
-// --- Kunden anlegen ---
-createBtn.addEventListener("click", async () => {
-  const full_name = prompt("Name des neuen Kunden:");
-  if (!full_name) return;
-
-  const res = await fetch("/api/customer", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ full_name })
-  });
-  const data = await res.json();
-
-  if (data.created) {
-    alert(`✅ Neuer Kunde '${full_name}' angelegt.`);
-  } else {
-    alert(`ℹ️ Kunde '${full_name}' existiert bereits.`);
-  }
-
-  loadCount();
-});
 
 // --- Eintrag löschen ---
 document.addEventListener("click", async (event) => {
   if (event.target.classList.contains("delete-btn")) {
     const id = event.target.dataset.id;
-    if (confirm("Eintrag wirklich löschen?")) {
-      try {
-        const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) {
-          event.target.closest("tr").remove();
-        } else {
-          alert("Fehler beim Löschen!");
-        }
-      } catch (err) {
-        console.error("Fehler:", err);
-        alert("Verbindungsfehler beim Löschen.");
-      }
-    }
+    if (!confirm("Eintrag wirklich löschen?")) return;
+
+    await fetch(`/api/entry/${id}`, { method: "DELETE" });
+    event.target.closest("tr").remove();
   }
 });
 
-// --- Floating "Zurück zur Startseite"-Button ---
-const observer = new MutationObserver(() => {
-  const entryForm = document.getElementById("entryForm");
-  const backBtn = document.getElementById("backBtn");
-
-  if (entryForm && !backBtn) {
-    const btn = document.createElement("button");
-    btn.id = "backBtn";
-    btn.className = "floating-btn";
-    btn.textContent = "⬅️ Zurück zur Startseite";
-    btn.onclick = () => window.location.href = "/";
-    document.body.appendChild(btn);
-    console.log("✅ Floating-Button hinzugefügt");
-  }
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
-// --- Initialisierung ---
-loadCount();
-console.log("🔍 Script aktiv:", window.location.href);
-
-// --- Inline-Bearbeitung für Einträge ---
+// --- Inline-Bearbeitung inkl. Fahrlehrer ---
 document.addEventListener("click", async (e) => {
   const row = e.target.closest("tr");
   if (!row) return;
   const id = row.dataset.id;
 
-  // --- Bearbeiten aktivieren ---
   if (e.target.classList.contains("edit-entry")) {
-    const cells = row.querySelectorAll(".editable");
-    cells.forEach((cell) => {
-      const oldValue = cell.textContent.trim();
-      cell.innerHTML = `<input type="text" value="${oldValue}" />`;
-    });
+    const dateCell = row.querySelector(".date");
+    const amountCell = row.querySelector(".amount");
+    const noteCell = row.querySelector(".note");
+    const fahrCell = row.querySelector(".fahrlehrer");
+    const currentF = parseInt(fahrCell.getAttribute("data-f") || "1", 10);
 
-    // Buttons austauschen (Bearbeiten -> Speichern + Abbrechen)
-    e.target.outerHTML = `
-      <button class="save-entry">💾</button>
-      <button class="cancel-entry">❌</button>
+    dateCell.innerHTML = `<input type="text" value="${dateCell.textContent.trim()}" />`;
+    amountCell.innerHTML = `<input type="text" value="${amountCell.textContent.trim()}" />`;
+    noteCell.innerHTML = `<input type="text" value="${noteCell.textContent.trim()}" />`;
+
+    fahrCell.innerHTML = `
+      <select class="fahrSelect">
+        ${instructors.map(f => `<option value="${f.id}" ${f.id === currentF ? "selected" : ""}>${f.name}</option>`).join("")}
+      </select>
     `;
+
+    e.target.outerHTML = `<button class="save-entry">💾</button><button class="cancel-entry">❌</button>`;
+    return;
   }
 
-  // --- Änderungen speichern ---
   if (e.target.classList.contains("save-entry")) {
-    const inputs = row.querySelectorAll("input");
-    if (inputs.length < 3) return alert("Fehler: unvollständige Eingaben.");
+    const dateInput = row.querySelector(".date input");
+    const amountInput = row.querySelector(".amount input");
+    const noteInput = row.querySelector(".note input");
+    const fahrSel = row.querySelector(".fahrSelect");
 
-    const [dateInput, amountInput, noteInput] = inputs;
-
-    // Datum umwandeln (TT.MM.JJJJ → ISO)
-    const parts = dateInput.value.split(".");
-    const isoDate =
-      parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateInput.value;
+    let isoDate = dateInput.value;
+    if (isoDate.includes(".")) {
+      const [t, m, j] = isoDate.split(".");
+      isoDate = `${j}-${m}-${t}`;
+    }
 
     const updated = {
       date: isoDate,
       amount: parseFloat(amountInput.value),
       note: noteInput.value.trim(),
+      fahrlehrer_id: parseInt(fahrSel.value, 10)
     };
 
-    try {
-      const res = await fetch(`/api/entry/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
-      });
+    await fetch(`/api/entry/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    });
 
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Update fehlgeschlagen.");
-
-      // Neue Werte anzeigen
-      row.querySelector(".date").textContent = new Date(updated.date).toLocaleDateString("de-DE");
-      row.querySelector(".amount").textContent = updated.amount.toFixed(2);
-      row.querySelector(".note").textContent = updated.note;
-
-      // Buttons wiederherstellen
-      row.querySelector(".save-entry").outerHTML = `<button class="edit-entry">✏️</button>`;
-      const cancelBtn = row.querySelector(".cancel-entry");
-      if (cancelBtn) cancelBtn.remove();
-    } catch (err) {
-      console.error("Fehler beim Speichern:", err);
-      alert("❌ Fehler beim Speichern des Eintrags.");
-    }
+    openCustomer(document.getElementById("customerName").dataset.id);
   }
 
-  // --- Bearbeitung abbrechen ---
   if (e.target.classList.contains("cancel-entry")) {
-    try {
-      const customerId = document.querySelector("#customerName")?.dataset.id;
-      if (customerId) openCustomer(customerId);
-      else console.warn("Kunden-ID nicht gefunden – Abbruch übersprungen.");
-    } catch (err) {
-      console.error("Fehler beim Abbrechen:", err);
-    }
+    openCustomer(document.getElementById("customerName").dataset.id);
   }
 });
 
+// --- App-Start ---
+async function initApp() {
+  await loadInstructors();   // Fahrlehrer zuerst laden
+  await loadCount();         // Danach Kundenanzahl laden
+}
+initApp();
 
