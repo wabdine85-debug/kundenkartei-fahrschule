@@ -226,3 +226,22 @@ table button:focus {
   box-shadow: none;
 }
 
+/* Einheitliches Styling für Eingabefelder und Dropdowns */
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+/* Optional: etwas Abstand zwischen den Feldern im Formular */
+#entryForm input,
+#entryForm select {
+  margin-bottom: 6px;
+}
+
