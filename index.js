@@ -1,6 +1,6 @@
 import express from "express";
-import pkg from "pg";                // PostgreSQL-Paket
-const { Pool } = pkg;                // Pool extrahieren
+import pkg from "pg";
+const { Pool } = pkg;
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -14,17 +14,34 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- PostgreSQL-Verbindung ---
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // SSL aktiviert für Render & lokal
+  ssl: { rejectUnauthorized: false },
 });
 
-// --- Static files (Frontend) ---
-app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
-// --- API: alle Kunden ---
+/* ✅ TEST-ROUTE – zur Überprüfung, ob Express aktiv ist */
+app.get("/ping", (req, res) => {
+  console.log("✅ /ping erreicht");
+  res.json({ message: "Server läuft & API erreichbar ✅" });
+});
+
+/* --- DEBUG: zeigt Spaltennamen aus der Tabelle instructors --- */
+app.get("/api/debug/instructors", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM instructors LIMIT 1");
+    console.log("🧩 DEBUG instructors:", result.rows[0]);
+    res.json(result.rows[0] || { info: "Keine Daten gefunden" });
+  } catch (err) {
+    console.error("❌ Fehler in /api/debug/instructors:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+/* --- API: alle Kunden --- */
 app.get("/api/customers", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM customers ORDER BY full_name ASC");
@@ -35,38 +52,77 @@ app.get("/api/customers", async (req, res) => {
   }
 });
 
-// --- API: Ein Kunde + Einträge ---
+/* --- API: alle Fahrlehrer --- */
+app.get("/api/instructors", async (req, res) => {
+  console.log("👉 /api/instructors wurde aufgerufen");
+  try {
+    const result = await pool.query(`
+      SELECT * FROM instructors
+      ORDER BY CASE name
+        WHEN 'Hasieb' THEN 1
+        WHEN 'Taner' THEN 2
+        WHEN 'Berat' THEN 3
+        WHEN 'Sefa' THEN 4
+        WHEN 'Momo' THEN 5
+        WHEN 'Tamer' THEN 6
+        WHEN 'Onur' THEN 7
+        WHEN 'k.A.' THEN 8
+      END;
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fehler /api/instructors:", err.message);
+    res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
+/* --- API: Alle Schüler eines Fahrlehrers --- */
+app.get("/api/instructors/:id/customers", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = `
+      SELECT DISTINCT c.*
+      FROM customers c
+      JOIN entries e ON e.customer_id = c.id
+      WHERE e.fahrlehrer_id = $1
+      ORDER BY c.full_name ASC
+    `;
+    const result = await pool.query(query, [id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fehler /api/instructors/:id/customers:", err.message);
+    res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
+/* --- API: Ein Kunde + Einträge --- */
 app.get("/api/customer/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Kunde laden
     const customerResult = await pool.query("SELECT * FROM customers WHERE id = $1", [id]);
     if (customerResult.rows.length === 0) {
       return res.status(404).json({ error: "Kunde nicht gefunden" });
     }
 
-    // Einträge laden
     const entriesResult = await pool.query(
-      "SELECT id, date, amount, note FROM entries WHERE customer_id = $1 ORDER BY date DESC",
+      "SELECT id, date, amount, note, fahrlehrer_id FROM entries WHERE customer_id = $1 ORDER BY date DESC",
       [id]
     );
 
-    // Notizen säubern
-    const cleanedEntries = entriesResult.rows.map(e => ({
+    const cleanedEntries = entriesResult.rows.map((e) => ({
       id: e.id,
       date: e.date,
       amount: e.amount,
-      note: e.note && typeof e.note === "string" ? e.note.trim() : ""
+      note: e.note && typeof e.note === "string" ? e.note.trim() : "",
+      fahrlehrer_id: e.fahrlehrer_id,
     }));
 
-    // Gesamtsumme berechnen
     const sumResult = await pool.query(
       "SELECT COALESCE(SUM(amount),0) AS total FROM entries WHERE customer_id = $1",
       [id]
     );
 
-    // Antwort
     res.json({
       customer: customerResult.rows[0],
       entries: cleanedEntries,
@@ -78,12 +134,7 @@ app.get("/api/customer/:id", async (req, res) => {
   }
 });
 
-// --- Startseite ---
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// --- Neuen Kunden anlegen oder vorhandenen laden ---
+/* --- Neuen Kunden anlegen --- */
 app.post("/api/customer", async (req, res) => {
   try {
     const { full_name } = req.body;
@@ -91,6 +142,7 @@ app.post("/api/customer", async (req, res) => {
       "SELECT id FROM customers WHERE LOWER(full_name) = LOWER($1)",
       [full_name]
     );
+
     if (existing.rows.length > 0) {
       return res.json({ id: existing.rows[0].id, created: false });
     } else {
@@ -106,7 +158,7 @@ app.post("/api/customer", async (req, res) => {
   }
 });
 
-// --- Kundennamen aktualisieren (PUT) ---
+/* --- Kundennamen aktualisieren --- */
 app.put("/api/customer/:id", async (req, res) => {
   const { id } = req.params;
   const { full_name } = req.body;
@@ -120,7 +172,7 @@ app.put("/api/customer/:id", async (req, res) => {
   }
 });
 
-// --- Kunden & Einträge löschen (DELETE) ---
+/* --- Kunden & Einträge löschen --- */
 app.delete("/api/customer/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -134,13 +186,12 @@ app.delete("/api/customer/:id", async (req, res) => {
   }
 });
 
-// --- Eintrag bearbeiten (PUT) ---
+/* --- Eintrag bearbeiten --- */
 app.put("/api/entry/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, amount, note } = req.body;
+    const { date, amount, note, fahrlehrer_id } = req.body;
 
-    // Eingaben prüfen
     if (!id || !date || isNaN(amount)) {
       return res.status(400).json({ success: false, error: "Ungültige Daten" });
     }
@@ -148,8 +199,8 @@ app.put("/api/entry/:id", async (req, res) => {
     const cleanNote = note && note.trim().length > 0 ? note.trim() : null;
 
     const result = await pool.query(
-      "UPDATE entries SET date = $1, amount = $2, note = $3 WHERE id = $4 RETURNING *",
-      [date, amount, cleanNote, id]
+      "UPDATE entries SET date = $1, amount = $2, note = $3, fahrlehrer_id = $4 WHERE id = $5 RETURNING *",
+      [date, amount, cleanNote, fahrlehrer_id || 1, id]
     );
 
     if (result.rowCount === 0) {
@@ -163,17 +214,15 @@ app.put("/api/entry/:id", async (req, res) => {
   }
 });
 
-
-// --- Neuen Eintrag hinzufügen ---
+/* --- Neuen Eintrag hinzufügen --- */
 app.post("/api/entry", async (req, res) => {
   try {
-    const { customer_id, date, amount, note } = req.body;
-
+    const { customer_id, date, amount, note, fahrlehrer_id } = req.body;
     const cleanNote = note && note.trim().length > 0 ? note.trim() : null;
 
     await pool.query(
-      "INSERT INTO entries (customer_id, date, amount, note) VALUES ($1,$2,$3,$4)",
-      [customer_id, date, amount, cleanNote]
+      "INSERT INTO entries (customer_id, date, amount, note, fahrlehrer_id) VALUES ($1,$2,$3,$4,$5)",
+      [customer_id, date, amount, cleanNote, fahrlehrer_id || 1]
     );
 
     res.json({ success: true });
@@ -183,7 +232,7 @@ app.post("/api/entry", async (req, res) => {
   }
 });
 
-// --- Eintrag löschen ---
+/* --- Eintrag löschen --- */
 app.delete("/api/entry/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -195,5 +244,12 @@ app.delete("/api/entry/:id", async (req, res) => {
   }
 });
 
-// --- Server starten ---
+/* --- Startseite & statische Dateien --- */
+app.use(express.static(path.join(__dirname, "public")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+/* ✅ Server starten – GANZ AM ENDE */
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+
