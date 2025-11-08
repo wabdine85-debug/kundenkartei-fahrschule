@@ -309,6 +309,18 @@ document.addEventListener("click", async (e) => {
     openCustomer(document.getElementById("customerName").dataset.id);
   }
 });
+// --- Button "Tätigkeiten / Minuten" öffnet Seite zum aktuellen Kunden ---
+document.getElementById("minutesPageBtn").addEventListener("click", () => {
+  // Prüfen, ob ein Kunde geöffnet ist
+  const openedCustomer = document.getElementById("customerName");
+
+  if (openedCustomer && openedCustomer.dataset.id) {
+    const id = openedCustomer.dataset.id;
+    window.open(`/minutes.html?customer_id=${id}`, "_blank");
+  } else {
+    alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
+  }
+});
 
 // --- App-Start ---
 async function initApp() {

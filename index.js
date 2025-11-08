@@ -52,6 +52,37 @@ app.get("/api/customers", async (req, res) => {
   }
 });
 
+// 🔹 Minuten abrufen (nach customer_id)
+app.get("/api/minutes/:customer_id", async (req, res) => {
+  try {
+    const { customer_id } = req.params;
+    const result = await pool.query(
+      "SELECT * FROM minutes WHERE customer_id = $1 ORDER BY datum DESC",
+      [customer_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fehler beim Laden der Minuten:", err);
+    res.status(500).json({ error: "Fehler beim Laden der Minuten" });
+  }
+});
+
+// 🔹 Neue Minute speichern
+app.post("/api/minutes", async (req, res) => {
+  try {
+    const { customer_id, taetigkeit, minuten, fahrlehrer, datum } = req.body;
+    const result = await pool.query(
+      "INSERT INTO minutes (customer_id, taetigkeit, minuten, fahrlehrer, datum) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [customer_id, taetigkeit, minuten, fahrlehrer, datum]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Fehler beim Speichern der Minute:", err);
+    res.status(500).json({ error: "Fehler beim Speichern der Minute" });
+  }
+});
+
+
 /* --- API: alle Fahrlehrer --- */
 app.get("/api/instructors", async (req, res) => {
   console.log("👉 /api/instructors wurde aufgerufen");

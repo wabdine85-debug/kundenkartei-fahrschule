@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="de">
 <head>
+  <style>
+  .actions button {
+    display: inline-block !important;
+    margin-top: 6px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+</style>
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kundenkartei Fahrschule</title>
@@ -12,33 +21,39 @@
     <p class="muted">Schnell suchen · Neu anlegen · Von überall nutzen</p>
   </header>
 
-  <main class="card">
-    <form id="searchForm">
-      <div class="grid">
-        <div>
-          <label>Vorname</label>
-          <input id="first" type="text" placeholder="z. B. Max" />
-        </div>
-        <div>
-          <label>Nachname</label>
-          <input id="last" type="text" placeholder="z. B. Müller" />
-        </div>
+<main class="card">
+  <form id="searchForm">
+    <div class="grid">
+      <div>
+        <label>Vorname</label>
+        <input id="first" type="text" placeholder="z. B. Max" />
       </div>
-      <div class="actions">
-        <button type="submit">Suchen / Öffnen</button>
-        <button type="button" id="createBtn" class="secondary">Neuen Kunden anlegen</button>
+      <div>
+        <label>Nachname</label>
+        <input id="last" type="text" placeholder="z. B. Müller" />
       </div>
-    </form>
-
-    <div class="stats">
-      <span id="count">–</span> Kunden gesamt
     </div>
 
-    <div id="results" class="list"></div>
-  </main>
+    <div class="actions">
+      <button type="submit">Suchen / Öffnen</button>
+      <button type="button" id="createBtn" class="secondary">Neuen Kunden anlegen</button>
 
-  <footer>© Kundenkartei Fahrschule</footer>
-  <script src="/script.js?v=20251021"></script>
+      <!-- 👇 NEUER BUTTON: Tätigkeiten / Minuten -->
+      <button type="button" id="minutesPageBtn" class="secondary" style="background:#3b82f6; color:white;">
+        🕒 Tätigkeiten / Minuten
+      </button>
+    </div>
+  </form>
 
+  <div class="stats">
+    <span id="count">–</span> Kunden gesamt
+  </div>
+
+  <div id="results" class="list"></div>
+</main>
+
+<footer>© Kundenkartei Fahrschule</footer>
+<script src="/script.js?v=20251021"></script>
 </body>
 </html>
+
