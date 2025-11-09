@@ -3,22 +3,21 @@ console.log("✅ script.js gestartet");
 document.addEventListener("DOMContentLoaded", () => {
   console.log("🚀 DOM geladen – Script startet Initialisierung...");
 
-  // --- Script für Kundenkartei-Fahrschule ---
-
+  // --- Grund-Elemente der Startseite ---
   const searchForm = document.getElementById("searchForm");
   const firstInput = document.getElementById("first");
   const lastInput = document.getElementById("last");
   const resultsDiv = document.getElementById("results");
   const countSpan = document.getElementById("count");
   const createBtn = document.getElementById("createBtn");
+  const minutesPageBtn = document.getElementById("minutesPageBtn");
 
-  if (!searchForm) {
-    console.error("❌ searchForm nicht gefunden – DOM Problem!");
+  if (!searchForm || !firstInput || !lastInput || !resultsDiv || !countSpan) {
+    console.error("❌ Notwendige DOM-Elemente nicht gefunden. Script bricht ab.");
     return;
   }
 
   console.log("✅ DOM-Elemente gefunden – Script läuft...");
-
 
   let instructors = [];
 
@@ -32,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Gesamtanzahl laden ---
+  // --- Gesamtanzahl Kunden laden ---
   async function loadCount() {
     try {
       const res = await fetch("/api/customers");
@@ -44,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Suche nach Kunde ---
+  // --- Kunde suchen ---
   searchForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const first = firstInput.value.trim().toLowerCase();
@@ -66,34 +65,38 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>❌ Kein Kunde gefunden.</p>
           <button id="createNew">Neuen Kunden '${firstInput.value} ${lastInput.value}' anlegen</button>
         `;
-        document.getElementById("createNew").addEventListener("click", async () => {
-          const full_name = `${firstInput.value} ${lastInput.value}`.trim();
-          const res = await fetch("/api/customer", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ full_name }),
+
+        const createNewBtn = document.getElementById("createNew");
+        if (createNewBtn) {
+          createNewBtn.addEventListener("click", async () => {
+            const full_name = `${firstInput.value} ${lastInput.value}`.trim();
+            const res = await fetch("/api/customer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ full_name }),
+            });
+            const data = await res.json();
+            if (data.created) {
+              alert(`✅ Neuer Kunde '${full_name}' angelegt.`);
+            } else {
+              alert(`ℹ️ Kunde '${full_name}' existiert bereits.`);
+            }
+            await loadCount();
+            openCustomer(data.id);
           });
-          const data = await res.json();
-          if (data.created) {
-            alert(`✅ Neuer Kunde '${full_name}' angelegt.`);
-          } else {
-            alert(`ℹ️ Kunde '${full_name}' existiert bereits.`);
-          }
-          await loadCount();
-          openCustomer(data.id);
-        });
+        }
         return;
       }
 
-      // Ergebnisse anzeigen
+      // Trefferliste anzeigen
       resultsDiv.innerHTML = matches
         .map(
           (c) => `
-        <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
-          <span>${c.full_name}</span>
-          <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
-        </div>
-      `
+            <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
+              <span>${c.full_name}</span>
+              <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
+            </div>
+          `
         )
         .join("");
 
@@ -102,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (err) {
       resultsDiv.innerHTML = "<p>Fehler bei der Suche.</p>";
-      console.error(err);
+      console.error("Fehler bei der Suche:", err);
     }
   });
 
@@ -110,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function openCustomer(id) {
     try {
       await loadInstructors();
+
       const res = await fetch(`/api/customer/${id}`);
       const data = await res.json();
 
@@ -134,7 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <button id="deleteCustomerBtn" class="danger-btn">🗑️ Kunden löschen</button>
       `;
 
-      // --- Tabelle der Einträge ---
+      // Tabelle Einträge
       html += `
         <table>
           <thead>
@@ -144,24 +148,19 @@ document.addEventListener("DOMContentLoaded", () => {
             ${entries
               .map(
                 (e) => `
-              <tr data-id="${e.id}">
-                <td class="editable date">${
-                  e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""
-                }</td>
-                <td class="editable amount">${Number(e.amount || 0).toFixed(2)}</td>
-                <td class="editable note">${e.note || ""}</td>
-                <td class="editable fahrlehrer" data-f="${e.fahrlehrer_id || 1}">
-                  ${
-                    (instructors.find((f) => f.id === e.fahrlehrer_id)?.name) ||
-                    "k.A."
-                  }
-                </td>
-                <td>
-                  <button class="edit-entry">✏️</button>
-                  <button class="delete-btn" data-id="${e.id}">🗑️</button>
-                </td>
-              </tr>
-            `
+                  <tr data-id="${e.id}">
+                    <td class="editable date">${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
+                    <td class="editable amount">${Number(e.amount || 0).toFixed(2)}</td>
+                    <td class="editable note">${e.note || ""}</td>
+                    <td class="editable fahrlehrer" data-f="${e.fahrlehrer_id || 1}">
+                      ${(instructors.find((f) => f.id === e.fahrlehrer_id)?.name) || "k.A."}
+                    </td>
+                    <td>
+                      <button class="edit-entry">✏️</button>
+                      <button class="delete-btn" data-id="${e.id}">🗑️</button>
+                    </td>
+                  </tr>
+                `
               )
               .join("")}
           </tbody>
@@ -169,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
       `;
 
-      // --- Formular für neuen Eintrag ---
+      // Formular neuer Eintrag + Zurück-Button
       html += `
         <h3>➕ Neuer Eintrag</h3>
         <form id="entryForm">
@@ -193,6 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </select>
           <button type="submit">Eintrag speichern</button>
         </form>
+
         <div style="margin-top:20px; text-align:center;">
           <button id="backBtn" class="secondary" style="padding:6px 12px;">
             ⬅️ Zurück zur Startseite
@@ -202,20 +202,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       resultsDiv.innerHTML = html;
 
-      // --- Zurück zur Startseite ---
-      document
-        .getElementById("backBtn")
-        .addEventListener("click", () => (window.location.href = "/"));
+      // Zurück-Button
+      const backBtn = document.getElementById("backBtn");
+      if (backBtn) {
+        backBtn.addEventListener("click", () => {
+          window.location.href = "/";
+        });
+      }
 
-      // --- Neuen Eintrag speichern ---
-      document
-        .getElementById("entryForm")
-        .addEventListener("submit", async (e) => {
+      // Neuer Eintrag speichern
+      const entryForm = document.getElementById("entryForm");
+      if (entryForm) {
+        entryForm.addEventListener("submit", async (e) => {
           e.preventDefault();
           const date = document.getElementById("entryDate").value;
-          const amount = parseFloat(
-            document.getElementById("entryAmount").value
-          );
+          const amount = parseFloat(document.getElementById("entryAmount").value);
           const note = document.getElementById("entryNote").value;
           const fahrlehrer_id = parseInt(
             document.getElementById("entryInstructor").value,
@@ -236,42 +237,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
           openCustomer(id);
         });
+      }
 
-      // --- Kundenname bearbeiten ---
+      // Kundenname bearbeiten
       const editBtn = document.getElementById("editCustomerBtn");
       const saveBtn = document.getElementById("saveCustomerBtn");
       const cancelBtn = document.getElementById("cancelCustomerBtn");
       const nameSpan = document.getElementById("customerName");
 
-      editBtn.addEventListener("click", () => {
-        const current = nameSpan.textContent.trim();
-        nameSpan.innerHTML = `<input id="editCustomerName" type="text" value="${current}" />`;
-        editBtn.style.display = "none";
-        saveBtn.style.display = "inline";
-        cancelBtn.style.display = "inline";
-      });
-
-      saveBtn.addEventListener("click", async () => {
-        const newName = document
-          .getElementById("editCustomerName")
-          .value.trim();
-        if (!newName) return alert("Name darf nicht leer sein.");
-
-        await fetch(`/api/customer/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ full_name: newName }),
+      if (editBtn && saveBtn && cancelBtn && nameSpan) {
+        editBtn.addEventListener("click", () => {
+          const current = nameSpan.textContent.trim();
+          nameSpan.innerHTML = `<input id="editCustomerName" type="text" value="${current}" />`;
+          editBtn.style.display = "none";
+          saveBtn.style.display = "inline";
+          cancelBtn.style.display = "inline";
         });
 
-        openCustomer(id);
-      });
+        saveBtn.addEventListener("click", async () => {
+          const newName = document
+            .getElementById("editCustomerName")
+            .value.trim();
+          if (!newName) return alert("Name darf nicht leer sein.");
 
-      cancelBtn.addEventListener("click", () => openCustomer(id));
+          await fetch(`/api/customer/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ full_name: newName }),
+          });
 
-      // --- Kunden löschen ---
-      document
-        .getElementById("deleteCustomerBtn")
-        .addEventListener("click", async () => {
+          openCustomer(id);
+        });
+
+        cancelBtn.addEventListener("click", () => openCustomer(id));
+      }
+
+      // Kunden löschen
+      const deleteCustomerBtn = document.getElementById("deleteCustomerBtn");
+      if (deleteCustomerBtn) {
+        deleteCustomerBtn.addEventListener("click", async () => {
           if (
             !confirm(
               "Diesen Kunden inklusive aller Einträge wirklich löschen?"
@@ -282,61 +286,44 @@ document.addEventListener("DOMContentLoaded", () => {
           await fetch(`/api/customer/${id}`, { method: "DELETE" });
           window.location.href = "/";
         });
+      }
     } catch (err) {
       resultsDiv.innerHTML =
         "<p>❌ Fehler beim Laden des Kunden.</p>";
       console.error("Fehler in openCustomer:", err);
     }
   }
-// --- Sicherstellen, dass Click-Listener global aktiv bleiben ---
-document.addEventListener("click", async (event) => {
-  // Papierkorb für Einträge
-  if (event.target.classList.contains("delete-btn")) {
-    const id = event.target.dataset.id;
-    if (!confirm("Eintrag wirklich löschen?")) return;
-    await fetch(`/api/entry/${id}`, { method: "DELETE" });
-    event.target.closest("tr").remove();
-  }
 
-  // Button "Tätigkeiten / Minuten"
-  if (event.target.id === "minutesPageBtn") {
-    const openedCustomer = document.getElementById("customerName");
-    if (openedCustomer && openedCustomer.dataset.id) {
-      const id = openedCustomer.dataset.id;
-      window.open(`/minutes.html?customer_id=${id}`, "_blank");
-    } else {
-      alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
-    }
-  }
-});
-
-  // --- Eintrag löschen (Delegation) ---
+  // --- Globaler Click-Handler für dynamische Buttons (Einträge + Inline-Edit) ---
   document.addEventListener("click", async (event) => {
-    if (event.target.classList.contains("delete-btn")) {
-      const id = event.target.dataset.id;
+    const target = event.target;
+
+    // Eintrag löschen
+    if (target.classList.contains("delete-btn")) {
+      const id = target.dataset.id;
+      if (!id) return;
       if (!confirm("Eintrag wirklich löschen?")) return;
 
-      await fetch(`/api/entry/${id}`, { method: "DELETE" });
-      const row = event.target.closest("tr");
-      if (row) row.remove();
+      try {
+        await fetch(`/api/entry/${id}`, { method: "DELETE" });
+        const row = target.closest("tr");
+        if (row) row.remove();
+        console.log("🗑️ Eintrag gelöscht:", id);
+      } catch (err) {
+        console.error("Fehler beim Löschen des Eintrags:", err);
+      }
     }
-  });
 
-  // --- Inline-Bearbeitung inkl. Fahrlehrer ---
-  document.addEventListener("click", async (e) => {
-    const row = e.target.closest("tr");
-    if (!row) return;
-    const id = row.dataset.id;
+    // Inline-Bearbeitung starten
+    if (target.classList.contains("edit-entry")) {
+      const row = target.closest("tr");
+      if (!row) return;
 
-    if (e.target.classList.contains("edit-entry")) {
       const dateCell = row.querySelector(".date");
       const amountCell = row.querySelector(".amount");
       const noteCell = row.querySelector(".note");
       const fahrCell = row.querySelector(".fahrlehrer");
-      const currentF = parseInt(
-        fahrCell.getAttribute("data-f") || "1",
-        10
-      );
+      const currentF = parseInt(fahrCell.getAttribute("data-f") || "1", 10);
 
       dateCell.innerHTML = `<input type="text" value="${dateCell.textContent.trim()}" />`;
       amountCell.innerHTML = `<input type="text" value="${amountCell.textContent.trim()}" />`;
@@ -355,20 +342,25 @@ document.addEventListener("click", async (event) => {
         </select>
       `;
 
-      e.target.outerHTML = `
+      target.outerHTML = `
         <button class="save-entry">💾</button>
         <button class="cancel-entry">❌</button>
       `;
-      return;
     }
 
-    if (e.target.classList.contains("save-entry")) {
+    // Inline-Bearbeitung speichern
+    if (target.classList.contains("save-entry")) {
+      const row = target.closest("tr");
+      if (!row) return;
+      const id = row.dataset.id;
+      if (!id) return;
+
       const dateInput = row.querySelector(".date input");
       const amountInput = row.querySelector(".amount input");
       const noteInput = row.querySelector(".note input");
       const fahrSel = row.querySelector(".fahrSelect");
 
-      let isoDate = dateInput.value;
+      let isoDate = dateInput.value.trim();
       if (isoDate.includes(".")) {
         const [t, m, j] = isoDate.split(".");
         isoDate = `${j}-${m}-${t}`;
@@ -381,39 +373,37 @@ document.addEventListener("click", async (event) => {
         fahrlehrer_id: parseInt(fahrSel.value, 10),
       };
 
-      await fetch(`/api/entry/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
-      });
+      try {
+        await fetch(`/api/entry/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updated),
+        });
 
-      const currentCustomer =
-        document.getElementById("customerName")?.dataset.id;
-      if (currentCustomer) {
-        openCustomer(currentCustomer);
+        const currentCustomer =
+          document.getElementById("customerName")?.dataset.id;
+        if (currentCustomer) openCustomer(currentCustomer);
+      } catch (err) {
+        console.error("Fehler beim Speichern der Bearbeitung:", err);
       }
     }
 
-    if (e.target.classList.contains("cancel-entry")) {
+    // Inline-Bearbeitung abbrechen
+    if (target.classList.contains("cancel-entry")) {
       const currentCustomer =
         document.getElementById("customerName")?.dataset.id;
-      if (currentCustomer) {
-        openCustomer(currentCustomer);
-      }
+      if (currentCustomer) openCustomer(currentCustomer);
     }
   });
 
-  // --- Button "Tätigkeiten / Minuten" ---
+  // --- Button "Tätigkeiten / Minuten" (oben auf Hauptseite) ---
   if (minutesPageBtn) {
     minutesPageBtn.addEventListener("click", () => {
-      const openedCustomer =
-        document.getElementById("customerName");
+      const openedCustomer = document.getElementById("customerName");
       if (openedCustomer && openedCustomer.dataset.id) {
         const id = openedCustomer.dataset.id;
-        window.open(
-          `/minutes.html?customer_id=${id}`,
-          "_blank"
-        );
+        console.log("📄 Öffne Minuten-Seite für Kunde:", id);
+        window.open(`/minutes.html?customer_id=${id}`, "_blank");
       } else {
         alert(
           "Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen."
@@ -427,7 +417,7 @@ document.addEventListener("click", async (event) => {
     await loadInstructors();
     await loadCount();
   }
+
   initApp();
   console.log("🏁 Initialisierung abgeschlossen");
 });
-
