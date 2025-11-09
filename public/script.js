@@ -315,123 +315,118 @@ if (minutesPageBtn) {
 
 
 
-// --- 🗑️ Papierkorb / Eintrag löschen (stabil & sicher) ---
+// --- 🗑️ Papierkorb / Eintrag löschen + Inline-Bearbeitung ---
 document.addEventListener("click", async (event) => {
-  const btn = event.target.closest(".delete-btn");
-  if (!btn) return; // kein Lösch-Button geklickt
+  const target = event.target;
+  const btn = target.closest("button");
+  const row = target.closest("tr");
+  if (!btn) return;
 
-  const id = btn.dataset.id;
-  if (!id) return;
+  // 🗑️ Eintrag löschen
+  if (btn.classList.contains("delete-btn")) {
+    const id = btn.dataset.id;
+    if (!id) return;
+    if (!confirm("Eintrag wirklich löschen?")) return;
 
-  if (!confirm("Eintrag wirklich löschen?")) return;
+    try {
+      const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Fehler beim Löschen");
+      if (row) row.remove();
+      console.log(`🗑️ Eintrag ${id} gelöscht`);
+    } catch (err) {
+      console.error("❌ Fehler beim Löschen:", err);
+    }
+    return;
+  }
 
-  try {
-    const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("Serverfehler beim Löschen");
+  // ✏️ Inline-Bearbeitung starten
+  if (btn.classList.contains("edit-entry") && row) {
+    const dateCell = row.querySelector(".date");
+    const amountCell = row.querySelector(".amount");
+    const noteCell = row.querySelector(".note");
+    const fahrCell = row.querySelector(".fahrlehrer");
 
-    // ✅ Zeile aus der Tabelle entfernen
-    const row = btn.closest("tr");
-    if (row) row.remove();
+    const currentF = parseInt(fahrCell.dataset.f || "0", 10);
 
-    console.log(`🗑️ Eintrag ${id} gelöscht`);
-  } catch (err) {
-    console.error("❌ Fehler beim Löschen des Eintrags:", err);
-    alert("Fehler beim Löschen. Bitte Seite neu laden.");
+    dateCell.innerHTML = `<input type="date" value="${toISODate(
+      dateCell.textContent.trim()
+    )}" />`;
+    amountCell.innerHTML = `<input type="number" step="0.01" value="${amountCell.textContent.trim()}" />`;
+    noteCell.innerHTML = `<input type="text" value="${noteCell.textContent.trim()}" />`;
+
+    fahrCell.innerHTML = `
+      <select class="fahrSelect">
+        ${instructors
+          .map(
+            (f) =>
+              `<option value="${f.id}" ${
+                f.id === currentF ? "selected" : ""
+              }>${f.name}</option>`
+          )
+          .join("")}
+      </select>
+    `;
+
+    btn.outerHTML = `
+      <button class="save-entry">💾</button>
+      <button class="cancel-entry">❌</button>
+    `;
+    return;
+  }
+
+  // 💾 Inline speichern
+  if (btn.classList.contains("save-entry") && row) {
+    const id = row.dataset.id;
+    const dateInput = row.querySelector(".date input");
+    const amountInput = row.querySelector(".amount input");
+    const noteInput = row.querySelector(".note input");
+    const fahrSel = row.querySelector(".fahrSelect");
+
+    const updated = {
+      date: dateInput.value,
+      amount: parseFloat(amountInput.value),
+      note: noteInput.value.trim(),
+      fahrlehrer_id: parseInt(fahrSel.value, 10),
+    };
+
+    const currentCustomer = document.getElementById("customerName")?.dataset.id;
+
+    try {
+      await fetch(`/api/entry/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+      if (currentCustomer) openCustomer(currentCustomer);
+    } catch (err) {
+      console.error("❌ Fehler beim Speichern des Eintrags:", err);
+    }
+    return;
+  }
+
+  // ❌ Inline abbrechen
+  if (btn.classList.contains("cancel-entry")) {
+    const currentCustomer = document.getElementById("customerName")?.dataset.id;
+    if (currentCustomer) openCustomer(currentCustomer);
+    return;
   }
 });
 
-
-
-    // ✏️ Inline-Bearbeitung starten
-    if (target.classList.contains("edit-entry") && row) {
-      const dateCell = row.querySelector(".date");
-      const amountCell = row.querySelector(".amount");
-      const noteCell = row.querySelector(".note");
-      const fahrCell = row.querySelector(".fahrlehrer");
-
-      const currentF = parseInt(fahrCell.dataset.f || "0", 10);
-
-      dateCell.innerHTML = `<input type="date" value="${toISODate(
-        dateCell.textContent.trim()
-      )}" />`;
-      amountCell.innerHTML = `<input type="number" step="0.01" value="${amountCell.textContent.trim()}" />`;
-      noteCell.innerHTML = `<input type="text" value="${noteCell.textContent.trim()}" />`;
-
-      fahrCell.innerHTML = `
-        <select class="fahrSelect">
-          ${instructors
-            .map(
-              (f) =>
-                `<option value="${f.id}" ${
-                  f.id === currentF ? "selected" : ""
-                }>${f.name}</option>`
-            )
-            .join("")}
-        </select>
-      `;
-
-      target.outerHTML = `
-        <button class="save-entry">💾</button>
-        <button class="cancel-entry">❌</button>
-      `;
-      return;
-    }
-
-    // 💾 Inline speichern
-    if (target.classList.contains("save-entry") && row) {
-      const id = row.dataset.id;
-      const dateInput = row.querySelector(".date input");
-      const amountInput = row.querySelector(".amount input");
-      const noteInput = row.querySelector(".note input");
-      const fahrSel = row.querySelector(".fahrSelect");
-
-      const updated = {
-        date: dateInput.value,
-        amount: parseFloat(amountInput.value),
-        note: noteInput.value.trim(),
-        fahrlehrer_id: parseInt(fahrSel.value, 10),
-      };
-
-      const currentCustomer =
-        document.getElementById("customerName")?.dataset.id;
-
-      try {
-        await fetch(`/api/entry/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updated),
-        });
-        if (currentCustomer) openCustomer(currentCustomer);
-      } catch (err) {
-        console.error("❌ Fehler beim Speichern des Eintrags:", err);
-      }
-      return;
-    }
-
-    // ❌ Inline abbrechen
-    if (target.classList.contains("cancel-entry")) {
-      const currentCustomer =
-        document.getElementById("customerName")?.dataset.id;
-      if (currentCustomer) openCustomer(currentCustomer);
-      return;
-    }
-  });
-
-  function toISODate(deDate) {
-    // "dd.mm.yyyy" → "yyyy-mm-dd"
-    if (!deDate) return "";
-    const parts = deDate.split(".");
-    if (parts.length === 3) {
-      const [d, m, y] = parts;
-      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-    }
-    return "";
+// --- Hilfsfunktion: deutsches Datum → ISO ---
+function toISODate(deDate) {
+  if (!deDate) return "";
+  const parts = deDate.split(".");
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
+  return "";
+}
 
-  // --- Start ---
-  (async () => {
-    await loadInstructors();
-    await loadCount();
-    console.log("🏁 Initialisierung abgeschlossen");
-  })();
+// --- Start ---
+(async () => {
+  await loadInstructors();
+  await loadCount();
+  console.log("🏁 Initialisierung abgeschlossen");
+})();
 });
