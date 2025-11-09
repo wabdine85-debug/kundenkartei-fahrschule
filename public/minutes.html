@@ -88,105 +88,211 @@
   </form>
 
   <h3>Bisherige Tätigkeiten</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Datum</th>
-        <th>Tätigkeit</th>
-        <th>Minuten</th>
-        <th>Fahrlehrer</th>
-      </tr>
-    </thead>
-    <tbody id="minutesTable"></tbody>
-  </table>
+ <table>
+  <thead>
+    <tr>
+      <th>Datum</th>
+      <th>Tätigkeit</th>
+      <th>Minuten</th>
+      <th>Fahrlehrer</th>
+      <th>Aktionen</th> <!-- 👈 diese Zeile hinzufügen -->
+    </tr>
+  </thead>
+  <tbody id="minutesTable"></tbody>
+</table>
 
-  <script>
 
-// Fahrlehrer-Liste dynamisch laden (wie auf der Hauptseite)
+<script>
+// --- Fahrlehrer laden ---
 async function loadInstructors() {
   try {
     const res = await fetch("/api/instructors");
     const data = await res.json();
     const select = document.getElementById("fahrlehrer");
-
-    // "k.A." nur einmal anzeigen
     const filtered = data.filter(f => f.name.trim().toLowerCase() !== "k.a.");
-    select.innerHTML = '<option value="k.A.">k.A.</option>' +
+    select.innerHTML =
+      '<option value="k.A.">k.A.</option>' +
       filtered.map(f => `<option value="${f.name}">${f.name}</option>`).join("");
   } catch (err) {
     console.error("Fehler beim Laden der Fahrlehrer:", err);
   }
 }
 
+// --- Kunde-ID aus URL holen ---
+const params = new URLSearchParams(window.location.search);
+const customerId = params.get("customer_id");
+document.getElementById("customerId").value = customerId;
+
+// --- Datumsauswahl ---
+document.getElementById("dateType").addEventListener("change", (e) => {
+  const container = document.getElementById("dateInputs");
+  if (e.target.value === "exact") {
+    container.innerHTML = '<input type="date" id="datum" lang="de" required>';
+  } else {
+    container.innerHTML = '<input type="month" id="datum" lang="de" required>';
+  }
+});
+
+// --- Minutenliste laden ---
+async function loadMinutes() {
+  const res = await fetch(`/api/minutes/${customerId}`);
+  const data = await res.json();
+  const tbody = document.getElementById("minutesTable");
+ tbody.innerHTML = data.map(d => `
+  <tr data-id="${d.id}">
+    <td>${formatGermanDate(d.datum)}</td>
+    <td>${d.taetigkeit}</td>
+    <td>${d.minuten}</td>
+    <td>${d.fahrlehrer}</td>
+    <td>
+      <button class="edit-minute" data-id="${d.id}">✏️</button>
+      <button class="delete-minute" data-id="${d.id}">🗑️</button>
+    </td>
+  </tr>
+`).join("");
+
+}
 
 
-    // Customer-ID aus URL holen
-    const params = new URLSearchParams(window.location.search);
-    const customerId = params.get("customer_id");
-    document.getElementById("customerId").value = customerId;
+// --- Datumsformat deutsch ---
+function formatGermanDate(datum) {
+  if (!datum) return "";
+  if (/^\d{4}-\d{2}$/.test(datum)) {
+    const [y, m] = datum.split("-");
+    return `${m}.${y}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datum)) {
+    const [y, m, d] = datum.split("-");
+    return `${d}.${m}.${y}`;
+  }
+  return datum;
+}
 
-    // Datumsauswahl (Tag oder Monat)
-    document.getElementById("dateType").addEventListener("change", (e) => {
-      const type = e.target.value;
-      const container = document.getElementById("dateInputs");
-      if (type === "exact") {
-        container.innerHTML = '<input type="date" id="datum" lang="de" required>';
-      } else {
-        container.innerHTML = '<input type="month" id="datum" lang="de" required>';
-      }
-    });
+// Formular absenden
+document.getElementById("minuteForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const taetigkeit = document.getElementById("taetigkeit").value.trim();
+  const minuten = document.getElementById("minuten").value.trim();
+  const fahrlehrer = document.getElementById("fahrlehrer").value.trim();
 
-    // Minutenliste laden
-    async function loadMinutes() {
-      const res = await fetch(`/api/minutes/${customerId}`);
-      const data = await res.json();
-      const tbody = document.getElementById("minutesTable");
-      tbody.innerHTML = data.map(d => `
-        <tr>
-          <td>${formatGermanDate(d.datum)}</td>
-          <td>${d.taetigkeit}</td>
-          <td>${d.minuten}</td>
-          <td>${d.fahrlehrer}</td>
-        </tr>
-      `).join("");
-    }
+  // aktives Datumsfeld holen
+  const dateInput = document.querySelector("#dateInputs input");
+  let datum = dateInput ? dateInput.value.trim() : "";
 
-    // Deutsches Datumsformat
-    function formatGermanDate(datum) {
-      if (!datum) return "";
-      if (datum.length === 7) { // "2025-10"
-        const [y, m] = datum.split("-");
-        return `${m}.${y}`;
-      } else if (datum.length === 10) { // "2025-11-08"
-        const [y, m, d] = datum.split("-");
-        return `${d}.${m}.${y}`;
-      } else return datum;
-    }
+  // 🔹 automatische Formatkorrektur:
+  if (datum.includes("/")) {
+    // z. B. 10/2023 → 2023-10
+    const [m, y] = datum.split("/");
+    datum = `${y}-${m}`;
+  } else if (datum.includes(".")) {
+    // z. B. 10.2023 → 2023-10
+    const parts = datum.split(".");
+    if (parts.length === 2) datum = `${parts[1]}-${parts[0]}`;
+    if (parts.length === 3) datum = `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
 
-    // Formular absenden
-    document.getElementById("minuteForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const taetigkeit = document.getElementById("taetigkeit").value.trim();
-      const minuten = document.getElementById("minuten").value.trim();
-      const fahrlehrer = document.getElementById("fahrlehrer").value.trim();
-      const datum = document.getElementById("datum").value.trim();
+  // 🔹 falls exaktes Datum (YYYY-MM-DD) → nichts ändern
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datum)) datum = datum;
 
-      const res = await fetch("/api/minutes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer_id: customerId, taetigkeit, minuten, fahrlehrer, datum })
-      });
+  console.log("→ Gespeichertes Datum:", datum); // Debug
 
-      if (res.ok) {
-        document.getElementById("minuteForm").reset();
-        loadMinutes();
-      } else {
-        alert("Fehler beim Speichern!");
-      }
-    });
+  const res = await fetch("/api/minutes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ customer_id: customerId, taetigkeit, minuten, fahrlehrer, datum })
+  });
 
-    loadInstructors();
+  if (res.ok) {
+    document.getElementById("minuteForm").reset();
+    document.getElementById("dateInputs").innerHTML =
+      '<input type="date" id="datum" lang="de" required>';
     loadMinutes();
-  </script>
+  } else {
+    alert("Fehler beim Speichern!");
+  }
+});
+
+// Anzeigeformat
+function formatGermanDate(datum) {
+  if (!datum) return "";
+  if (/^\d{4}-\d{2}$/.test(datum)) {
+    const [y, m] = datum.split("-");
+    return `${m}.${y}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datum)) {
+    const [y, m, d] = datum.split("-");
+    return `${d}.${m}.${y}`;
+  }
+  return datum;
+}
+
+
+// --- Initial laden ---
+loadInstructors();
+loadMinutes();
+// --- Eintrag löschen ---
+document.addEventListener("click", async (event) => {
+  if (event.target.classList.contains("delete-minute")) {
+    const id = event.target.dataset.id;
+    if (!confirm("Eintrag wirklich löschen?")) return;
+
+    await fetch(`/api/minutes/${id}`, { method: "DELETE" });
+    loadMinutes();
+  }
+});
+
+// --- Eintrag bearbeiten ---
+document.addEventListener("click", async (event) => {
+  if (event.target.classList.contains("edit-minute")) {
+    const row = event.target.closest("tr");
+    const id = event.target.dataset.id;
+
+    const cells = row.querySelectorAll("td");
+    const [dateCell, taetCell, minCell, fahrCell] = cells;
+
+    dateCell.innerHTML = `<input type="text" value="${dateCell.textContent.trim()}" />`;
+    taetCell.innerHTML = `<input type="text" value="${taetCell.textContent.trim()}" />`;
+    minCell.innerHTML = `<input type="number" value="${minCell.textContent.trim()}" />`;
+    fahrCell.innerHTML = `<input type="text" value="${fahrCell.textContent.trim()}" />`;
+
+    event.target.outerHTML = `<button class="save-minute" data-id="${id}">💾</button>
+                              <button class="cancel-minute">❌</button>`;
+  }
+
+  // --- Änderungen speichern ---
+  if (event.target.classList.contains("save-minute")) {
+    const id = event.target.dataset.id;
+    const row = event.target.closest("tr");
+    const inputs = row.querySelectorAll("input");
+
+    let [datum, taetigkeit, minuten, fahrlehrer] = Array.from(inputs).map(i => i.value.trim());
+
+    // Datums-Korrektur beim Speichern (gleiche Logik wie beim Anlegen)
+    if (datum.includes("/")) {
+      const [m, y] = datum.split("/");
+      datum = `${y}-${m}`;
+    } else if (datum.includes(".")) {
+      const parts = datum.split(".");
+      if (parts.length === 2) datum = `${parts[1]}-${parts[0]}`;
+      if (parts.length === 3) datum = `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+
+    await fetch(`/api/minutes/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ datum, taetigkeit, minuten, fahrlehrer })
+    });
+
+    loadMinutes();
+  }
+
+  // --- Bearbeitung abbrechen ---
+  if (event.target.classList.contains("cancel-minute")) {
+    loadMinutes();
+  }
+});
+
+</script>
+
 </body>
 </html>

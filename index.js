@@ -81,6 +81,33 @@ app.post("/api/minutes", async (req, res) => {
     res.status(500).json({ error: "Fehler beim Speichern der Minute" });
   }
 });
+// 🔹 Minute-Eintrag aktualisieren
+app.put("/api/minutes/:id", async (req, res) => {
+  try {
+    const { datum, taetigkeit, minuten, fahrlehrer } = req.body;
+    const { id } = req.params;
+    await pool.query(
+      "UPDATE minutes SET datum = $1, taetigkeit = $2, minuten = $3, fahrlehrer = $4 WHERE id = $5",
+      [datum, taetigkeit, minuten, fahrlehrer, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fehler beim Aktualisieren eines Minuten-Eintrags:", err);
+    res.status(500).json({ error: "Update fehlgeschlagen" });
+  }
+});
+
+// 🔹 Minute-Eintrag löschen
+app.delete("/api/minutes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM minutes WHERE id = $1", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fehler beim Löschen eines Minuten-Eintrags:", err);
+    res.status(500).json({ error: "Löschen fehlgeschlagen" });
+  }
+});
 
 
 /* --- API: alle Fahrlehrer --- */
