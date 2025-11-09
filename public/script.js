@@ -294,6 +294,28 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // --- Einträge löschen oder bearbeiten (Delegation für dynamischen Inhalt) ---
+resultsDiv.addEventListener("click", async (event) => {
+  const target = event.target;
+
+  // 🗑️ Löschen
+  if (target.classList.contains("delete-btn")) {
+    const id = target.dataset.id;
+    if (!id) return;
+    if (!confirm("Eintrag wirklich löschen?")) return;
+
+    try {
+      const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Fehler beim Löschen");
+      target.closest("tr")?.remove();
+      console.log("🗑️ Eintrag gelöscht:", id);
+    } catch (err) {
+      console.error("Fehler beim Löschen:", err);
+    }
+  }
+});
+
+
   // --- Globaler Click-Handler für dynamische Buttons (Einträge + Inline-Edit) ---
   document.addEventListener("click", async (event) => {
     const target = event.target;
@@ -402,14 +424,22 @@ if (minutesPageBtn) {
     const openedCustomer = document.getElementById("customerName");
     if (openedCustomer && openedCustomer.dataset.id) {
       const id = openedCustomer.dataset.id;
-      console.log("➡️ Weiterleitung auf Minuten-Seite für Kunde:", id);
-      // ✅ Direkte Navigation (funktioniert immer)
-      window.location.href = `/minutes.html?customer_id=${id}`;
+      console.log("🪟 Öffne Minuten-Seite in neuem Tab für Kunde:", id);
+
+      // ✅ Erstelle einen echten <a>-Link → öffnet garantiert neuen Tab
+      const link = document.createElement("a");
+      link.href = `/minutes.html?customer_id=${id}`;
+      link.target = "_blank";
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } else {
       alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
     }
   });
 }
+
 
 
 
