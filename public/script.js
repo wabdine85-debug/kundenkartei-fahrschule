@@ -305,19 +305,20 @@ if (minutesPageBtn) {
 
     const id = openedCustomer.dataset.id;
     const url = `/minutes.html?customer_id=${id}`;
+    console.log("🪟 Öffne neuen Tab via <a>-Trick:", url);
 
-    console.log("🪟 Öffne neuen Tab sicher:", url);
-
-    // ✅ Garantierter Workaround gegen Pop-up-Blocker
-    const newTab = window.open("about:blank", "_blank");
-    if (newTab) {
-      newTab.location = url;
-      newTab.focus();
-    } else {
-      alert("⚠️ Pop-ups werden blockiert! Bitte Pop-ups für diese Seite erlauben.");
-    }
+    // ✅ Browser-sicherer Weg – erstellt echten klickbaren <a>-Link
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   });
 }
+
 
 
 // --- Delegation: Eintrag löschen & Inline-Bearbeiten ---
