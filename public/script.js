@@ -397,20 +397,24 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- Button "Tätigkeiten / Minuten" (oben auf Hauptseite) ---
-  if (minutesPageBtn) {
-    minutesPageBtn.addEventListener("click", () => {
-      const openedCustomer = document.getElementById("customerName");
-      if (openedCustomer && openedCustomer.dataset.id) {
-        const id = openedCustomer.dataset.id;
-        console.log("📄 Öffne Minuten-Seite für Kunde:", id);
-        window.open(`/minutes.html?customer_id=${id}`, "_blank");
-      } else {
-        alert(
-          "Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen."
-        );
+ if (minutesPageBtn) {
+  minutesPageBtn.addEventListener("click", function handleMinutesClick() {
+    const openedCustomer = document.getElementById("customerName");
+    if (openedCustomer && openedCustomer.dataset.id) {
+      const id = openedCustomer.dataset.id;
+      console.log("📄 Öffne Minuten-Seite für Kunde:", id);
+
+      // ✅ Pop-up sicher öffnen (innerhalb Click-Event)
+      const newWindow = window.open(`/minutes.html?customer_id=${id}`, "_blank");
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
+        alert("⚠️ Pop-up blockiert! Bitte im Browser Pop-ups für diese Seite erlauben.");
       }
-    });
-  }
+    } else {
+      alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
+    }
+  });
+}
+
 
   // --- App-Start ---
   async function initApp() {
