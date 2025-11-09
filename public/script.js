@@ -1,6 +1,13 @@
-// --- Script für Kundenkartei-Fahrschule ---
+console.log("✅ script.js gestartet");
 
 const searchForm = document.getElementById("searchForm");
+if (!searchForm) {
+  console.error("❌ searchForm nicht gefunden – DOM Problem!");
+}
+
+// --- Script für Kundenkartei-Fahrschule ---
+
+
 const firstInput = document.getElementById("first");
 const lastInput = document.getElementById("last");
 const resultsDiv = document.getElementById("results");
