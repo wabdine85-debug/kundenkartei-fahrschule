@@ -1,19 +1,24 @@
 console.log("✅ script.js gestartet");
 
 document.addEventListener("DOMContentLoaded", () => {
-  // --- DOM-Elemente holen ---
+  console.log("🚀 DOM geladen – Script startet Initialisierung...");
+
+  // --- Script für Kundenkartei-Fahrschule ---
+
   const searchForm = document.getElementById("searchForm");
   const firstInput = document.getElementById("first");
   const lastInput = document.getElementById("last");
   const resultsDiv = document.getElementById("results");
   const countSpan = document.getElementById("count");
   const createBtn = document.getElementById("createBtn");
-  const minutesPageBtn = document.getElementById("minutesPageBtn");
 
-  if (!searchForm || !firstInput || !lastInput || !resultsDiv || !countSpan) {
-    console.error("❌ Wichtige Elemente nicht gefunden – Script wird nicht initialisiert.");
+  if (!searchForm) {
+    console.error("❌ searchForm nicht gefunden – DOM Problem!");
     return;
   }
+
+  console.log("✅ DOM-Elemente gefunden – Script läuft...");
+
 
   let instructors = [];
 
