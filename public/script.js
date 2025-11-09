@@ -315,34 +315,31 @@ if (minutesPageBtn) {
 
 
 
+// --- 🗑️ Papierkorb / Eintrag löschen (stabil & sicher) ---
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest(".delete-btn");
+  if (!btn) return; // kein Lösch-Button geklickt
 
-// --- Delegation: Eintrag löschen & Inline-Bearbeiten ---
-resultsDiv.addEventListener("click", async (e) => {
-  // Ziel-Element sauber bestimmen (auch bei Icon oder Emoji-Klicks)
-  const target = e.target.closest("button");
-  if (!target) return;
+  const id = btn.dataset.id;
+  if (!id) return;
 
-  const row = target.closest("tr");
+  if (!confirm("Eintrag wirklich löschen?")) return;
 
-  // 🗑️ Eintrag löschen
-  if (target.classList.contains("delete-btn")) {
-    const id = target.dataset.id;
-    if (!id) return;
-    if (!confirm("Eintrag wirklich löschen?")) return;
+  try {
+    const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Serverfehler beim Löschen");
 
-    try {
-      const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Fehler beim Löschen");
-      // ✅ Zeile direkt entfernen, egal ob neu geladen oder nicht
-      if (row) {
-        row.remove();
-        console.log("🗑️ Eintrag gelöscht & Zeile entfernt:", id);
-      }
-    } catch (err) {
-      console.error("❌ Fehler beim Löschen des Eintrags:", err);
-    }
-    return;
+    // ✅ Zeile aus der Tabelle entfernen
+    const row = btn.closest("tr");
+    if (row) row.remove();
+
+    console.log(`🗑️ Eintrag ${id} gelöscht`);
+  } catch (err) {
+    console.error("❌ Fehler beim Löschen des Eintrags:", err);
+    alert("Fehler beim Löschen. Bitte Seite neu laden.");
   }
+});
+
 
 
     // ✏️ Inline-Bearbeitung starten
