@@ -288,6 +288,27 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Fehler in openCustomer:", err);
     }
   }
+// --- Sicherstellen, dass Click-Listener global aktiv bleiben ---
+document.addEventListener("click", async (event) => {
+  // Papierkorb für Einträge
+  if (event.target.classList.contains("delete-btn")) {
+    const id = event.target.dataset.id;
+    if (!confirm("Eintrag wirklich löschen?")) return;
+    await fetch(`/api/entry/${id}`, { method: "DELETE" });
+    event.target.closest("tr").remove();
+  }
+
+  // Button "Tätigkeiten / Minuten"
+  if (event.target.id === "minutesPageBtn") {
+    const openedCustomer = document.getElementById("customerName");
+    if (openedCustomer && openedCustomer.dataset.id) {
+      const id = openedCustomer.dataset.id;
+      window.open(`/minutes.html?customer_id=${id}`, "_blank");
+    } else {
+      alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
+    }
+  }
+});
 
   // --- Eintrag löschen (Delegation) ---
   document.addEventListener("click", async (event) => {
