@@ -100,6 +100,7 @@
   </thead>
   <tbody id="minutesTable"></tbody>
 </table>
+<div id="total-minutes" style="margin-top:15px;font-weight:600;"></div>
 
 
 <script>
@@ -153,6 +154,20 @@ async function loadMinutes() {
 
 }
 
+// 🔹 Gesamtminuten + Stunden laden
+async function loadTotalMinutes() {
+  try {
+    const res = await fetch(`/api/minutes/sum/${customerId}`);
+    const data = await res.json();
+
+    const sumContainer = document.getElementById("total-minutes");
+    if (sumContainer) {
+      sumContainer.textContent = `Gesamt: ${data.total_minutes} Min = ${data.total_hours} Std`;
+    }
+  } catch (err) {
+    console.error("Fehler beim Laden der Gesamtminuten:", err);
+  }
+}
 
 // --- Datumsformat deutsch ---
 function formatGermanDate(datum) {
@@ -230,6 +245,8 @@ function formatGermanDate(datum) {
 // --- Initial laden ---
 loadInstructors();
 loadMinutes();
+loadTotalMinutes();
+
 // --- Eintrag löschen ---
 document.addEventListener("click", async (event) => {
   if (event.target.classList.contains("delete-minute")) {
@@ -237,7 +254,9 @@ document.addEventListener("click", async (event) => {
     if (!confirm("Eintrag wirklich löschen?")) return;
 
     await fetch(`/api/minutes/${id}`, { method: "DELETE" });
-    loadMinutes();
+loadMinutes();
+loadTotalMinutes();
+
   }
 });
 
@@ -284,11 +303,15 @@ document.addEventListener("click", async (event) => {
     });
 
     loadMinutes();
+    loadTotalMinutes();
+
   }
 
   // --- Bearbeitung abbrechen ---
   if (event.target.classList.contains("cancel-minute")) {
     loadMinutes();
+    loadTotalMinutes();
+
   }
 });
 

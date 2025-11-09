@@ -66,6 +66,30 @@ app.get("/api/minutes/:customer_id", async (req, res) => {
     res.status(500).json({ error: "Fehler beim Laden der Minuten" });
   }
 });
+// 🔹 Gesamtminuten + dezimale Stunden eines Kunden abrufen
+app.get("/api/minutes/sum/:customer_id", async (req, res) => {
+  try {
+    const { customer_id } = req.params;
+    const result = await pool.query(
+      "SELECT COALESCE(SUM(minuten), 0) AS total_minutes FROM minutes WHERE customer_id = $1",
+      [customer_id]
+    );
+
+    const totalMinutes = result.rows[0].total_minutes;
+
+    // 🔹 Dezimal-Umrechnung (z. B. 90 min = 1,30 Std)
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const decimalHours = (hours + minutes / 100).toFixed(2);
+
+    res.json({ total_minutes: totalMinutes, total_hours: decimalHours });
+} catch (err) {
+  console.error("❌ Fehler bei /api/minutes/sum/:customer_id:", err.message);
+  res.status(500).json({ error: err.message });
+}
+
+});
+
 
 // 🔹 Neue Minute speichern
 app.post("/api/minutes", async (req, res) => {
