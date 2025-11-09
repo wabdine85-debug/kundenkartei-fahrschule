@@ -292,8 +292,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 // --- Tätigkeiten / Minuten (oberer Button) ---
-if (minutesTopBtn) {
-  minutesTopBtn.addEventListener("click", (e) => {
+const minutesPageBtn = document.getElementById("minutesPageBtn");
+if (minutesPageBtn) {
+  minutesPageBtn.addEventListener("click", (e) => {
     e.preventDefault();
 
     const openedCustomer = document.getElementById("customerName");
@@ -311,6 +312,7 @@ if (minutesTopBtn) {
     const newTab = window.open("about:blank", "_blank");
     if (newTab) {
       newTab.location = url;
+      newTab.focus();
     } else {
       alert("⚠️ Pop-ups werden blockiert! Bitte Pop-ups für diese Seite erlauben.");
     }
