@@ -291,23 +291,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- Oben: "Tätigkeiten / Minuten"-Button ---
-// --- Tätigkeiten/Minuten-Button (oben) ---
+// --- Tätigkeiten / Minuten (oberer Button) ---
 if (minutesTopBtn) {
   minutesTopBtn.addEventListener("click", (e) => {
     e.preventDefault();
+
     const openedCustomer = document.getElementById("customerName");
-    if (openedCustomer && openedCustomer.dataset.id) {
-      const id = openedCustomer.dataset.id;
-      const url = `/minutes.html?customer_id=${id}`;
-      console.log("🪟 Öffne neuen Tab:", url);
-      const newTab = window.open(url, "_blank");
-      if (!newTab) alert("⚠️ Pop-ups werden blockiert! Bitte Pop-ups für diese Seite erlauben.");
-    } else {
+    if (!openedCustomer || !openedCustomer.dataset.id) {
       alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
+      return;
+    }
+
+    const id = openedCustomer.dataset.id;
+    const url = `/minutes.html?customer_id=${id}`;
+
+    console.log("🪟 Öffne neuen Tab sicher:", url);
+
+    // ✅ Garantierter Workaround gegen Pop-up-Blocker
+    const newTab = window.open("about:blank", "_blank");
+    if (newTab) {
+      newTab.location = url;
+    } else {
+      alert("⚠️ Pop-ups werden blockiert! Bitte Pop-ups für diese Seite erlauben.");
     }
   });
 }
+
 
 // --- Delegation: Eintrag löschen & Inline-Bearbeiten ---
 resultsDiv.addEventListener("click", async (e) => {
