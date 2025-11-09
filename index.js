@@ -325,18 +325,21 @@ app.delete("/api/entry/:id", async (req, res) => {
     res.status(500).json({ error: "Fehler beim Löschen" });
   }
 });
+
+/* --- Startseite & statische Dateien --- */
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 // Keine Cache-Header für HTML & JS
 app.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
 });
 
-/* --- Startseite & statische Dateien --- */
-app.use(express.static(path.join(__dirname, "public")));
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
 /* ✅ Server starten – GANZ AM ENDE */
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+
 
