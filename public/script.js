@@ -292,39 +292,51 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- Oben: "Tätigkeiten / Minuten"-Button ---
-  if (minutesTopBtn) {
-    minutesTopBtn.addEventListener("click", () => {
-      const openedCustomer = document.getElementById("customerName");
-      if (openedCustomer && openedCustomer.dataset.id) {
-        const id = openedCustomer.dataset.id;
-        window.open(`/minutes.html?customer_id=${id}`, "_blank", "noopener,noreferrer");
-      } else {
-        alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
+// --- Tätigkeiten/Minuten-Button (oben) ---
+if (minutesTopBtn) {
+  minutesTopBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const openedCustomer = document.getElementById("customerName");
+    if (openedCustomer && openedCustomer.dataset.id) {
+      const id = openedCustomer.dataset.id;
+      const url = `/minutes.html?customer_id=${id}`;
+      console.log("🪟 Öffne neuen Tab:", url);
+      const newTab = window.open(url, "_blank");
+      if (!newTab) alert("⚠️ Pop-ups werden blockiert! Bitte Pop-ups für diese Seite erlauben.");
+    } else {
+      alert("Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen.");
+    }
+  });
+}
+
+// --- Delegation: Eintrag löschen & Inline-Bearbeiten ---
+resultsDiv.addEventListener("click", async (e) => {
+  // Ziel-Element sauber bestimmen (auch bei Icon oder Emoji-Klicks)
+  const target = e.target.closest("button");
+  if (!target) return;
+
+  const row = target.closest("tr");
+
+  // 🗑️ Eintrag löschen
+  if (target.classList.contains("delete-btn")) {
+    const id = target.dataset.id;
+    if (!id) return;
+    if (!confirm("Eintrag wirklich löschen?")) return;
+
+    try {
+      const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Fehler beim Löschen");
+      // ✅ Zeile direkt entfernen, egal ob neu geladen oder nicht
+      if (row) {
+        row.remove();
+        console.log("🗑️ Eintrag gelöscht & Zeile entfernt:", id);
       }
-    });
+    } catch (err) {
+      console.error("❌ Fehler beim Löschen des Eintrags:", err);
+    }
+    return;
   }
 
-  // --- Delegation: Eintrag löschen & Inline-Bearbeiten ---
-  resultsDiv.addEventListener("click", async (e) => {
-    const target = e.target;
-    const row = target.closest("tr");
-
-    // 🗑️ Eintrag löschen
-    if (target.classList.contains("delete-btn")) {
-      const id = target.dataset.id;
-      if (!id) return;
-      if (!confirm("Eintrag wirklich löschen?")) return;
-
-      try {
-        const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Fehler beim Löschen");
-        if (row) row.remove();
-        console.log("🗑️ Eintrag gelöscht:", id);
-      } catch (err) {
-        console.error("❌ Fehler beim Löschen des Eintrags:", err);
-      }
-      return;
-    }
 
     // ✏️ Inline-Bearbeitung starten
     if (target.classList.contains("edit-entry") && row) {
