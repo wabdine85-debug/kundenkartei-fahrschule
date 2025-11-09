@@ -402,4 +402,6 @@ document.addEventListener("DOMContentLoaded", () => {
     await loadCount();
   }
   initApp();
+  console.log("🏁 Initialisierung abgeschlossen");
 });
+
