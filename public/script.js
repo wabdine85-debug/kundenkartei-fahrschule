@@ -1,7 +1,7 @@
 console.log("✅ script.js gestartet");
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("🚀 DOM geladen – Initialisierung läuft...");
+  console.log("🚀 DOM geladen – Initialisierung gestartet...");
 
   const searchForm = document.getElementById("searchForm");
   const firstInput = document.getElementById("first");
@@ -9,8 +9,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const resultsDiv = document.getElementById("results");
   const countSpan = document.getElementById("count");
 
-  if (!searchForm) {
-    console.error("❌ Kein searchForm gefunden!");
+  if (!searchForm || !resultsDiv) {
+    console.error("❌ DOM-Elemente fehlen. Script abgebrochen.");
     return;
   }
 
@@ -21,8 +21,9 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/instructors");
       instructors = await res.json();
+      console.log("👨‍🏫 Fahrlehrer geladen:", instructors.length);
     } catch (err) {
-      console.error("Fehler beim Laden der Fahrlehrer:", err);
+      console.error("❌ Fehler beim Laden der Fahrlehrer:", err);
     }
   }
 
@@ -33,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const customers = await res.json();
       countSpan.textContent = customers.length;
     } catch (err) {
-      console.error("Fehler beim Laden der Kunden:", err);
+      console.error("❌ Fehler beim Laden der Kunden:", err);
       countSpan.textContent = "–";
     }
   }
@@ -43,13 +44,14 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const first = firstInput.value.trim().toLowerCase();
     const last = lastInput.value.trim().toLowerCase();
-    resultsDiv.innerHTML = "<p>⏳ Suche läuft...</p>";
+
+    resultsDiv.innerHTML = "<p class='muted'>🔍 Suche läuft...</p>";
 
     try {
       const res = await fetch("/api/customers");
       const customers = await res.json();
 
-      const matches = customers.filter((c) => {
+      const matches = customers.filter(c => {
         const name = c.full_name.toLowerCase();
         return (first && name.includes(first)) || (last && name.includes(last));
       });
@@ -72,37 +74,37 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             alert(`ℹ️ Kunde '${full_name}' existiert bereits.`);
           }
-          loadCount();
+          await loadCount();
           openCustomer(data.id);
         });
         return;
       }
 
-      resultsDiv.innerHTML = matches
-        .map(
-          (c) => `
-          <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
-            <span>${c.full_name}</span>
-            <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
-          </div>`
-        )
-        .join("");
+      // --- Ergebnisse anzeigen ---
+      resultsDiv.innerHTML = matches.map(c => `
+        <div class="customer" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ccc;">
+          <span>${c.full_name}</span>
+          <button class="openBtn" data-id="${c.id}" style="padding:4px 8px;">Kunde öffnen</button>
+        </div>
+      `).join("");
 
-      document.querySelectorAll(".openBtn").forEach((btn) => {
+      document.querySelectorAll(".openBtn").forEach(btn => {
         btn.addEventListener("click", () => openCustomer(btn.dataset.id));
       });
+
     } catch (err) {
-      console.error("Fehler bei der Suche:", err);
+      console.error("❌ Fehler bei der Kundensuche:", err);
       resultsDiv.innerHTML = "<p>Fehler bei der Suche.</p>";
     }
   });
 
-  // --- Kunde öffnen ---
+  // --- Kunde + Einträge laden ---
   async function openCustomer(id) {
     try {
       await loadInstructors();
       const res = await fetch(`/api/customer/${id}`);
       const data = await res.json();
+      console.log("📄 Kunde geladen:", data.customer?.full_name);
 
       if (!data || !data.customer) {
         resultsDiv.innerHTML = "<p>❌ Kunde nicht gefunden.</p>";
@@ -121,30 +123,28 @@ document.addEventListener("DOMContentLoaded", () => {
         </h2>
         <p><strong>ID:</strong> ${data.customer.id}</p>
         <button id="deleteCustomerBtn" class="danger-btn">🗑️ Kunden löschen</button>
+        <button id="minutesPageBtn" class="secondary">⏱ Tätigkeiten / Minuten</button>
+      `;
 
+      // --- Tabelle der Einträge ---
+      html += `
         <table>
           <thead>
             <tr><th>Datum</th><th>Betrag (€)</th><th>Notiz</th><th>Fahrlehrer</th><th></th></tr>
           </thead>
           <tbody>
-            ${entries
-              .map(
-                (e) => `
+            ${entries.map(e => `
               <tr data-id="${e.id}">
                 <td>${e.date ? new Date(e.date).toLocaleDateString("de-DE") : ""}</td>
                 <td>${Number(e.amount || 0).toFixed(2)}</td>
                 <td>${e.note || ""}</td>
-                <td>${(instructors.find((f) => f.id === e.fahrlehrer_id)?.name) || "k.A."}</td>
-                <td>
-                  <button class="edit-entry">✏️</button>
-                  <button class="delete-btn" data-id="${e.id}">🗑️</button>
-                </td>
-              </tr>`
-              )
-              .join("")}
+                <td>${(instructors.find(f => f.id === e.fahrlehrer_id)?.name) || "k.A."}</td>
+                <td><button class="delete-btn" data-id="${e.id}">🗑️</button></td>
+              </tr>
+            `).join("")}
           </tbody>
         </table>
-        <p><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
+        <p class="summe"><strong>Gesamtsumme:</strong> ${Number(total).toFixed(2)} €</p>
 
         <h3>➕ Neuer Eintrag</h3>
         <form id="entryForm">
@@ -152,23 +152,34 @@ document.addEventListener("DOMContentLoaded", () => {
           <input type="number" step="0.01" id="entryAmount" placeholder="Betrag (€)" required />
           <input type="text" id="entryNote" placeholder="Notiz (optional)" />
           <select id="entryInstructor">
-            ${instructors
-              .map((f) => `<option value="${f.id}" ${f.name === "k.A." ? "selected" : ""}>${f.name}</option>`)
-              .join("")}
+            ${instructors.map(f => `<option value="${f.id}" ${f.name === "k.A." ? "selected" : ""}>${f.name}</option>`).join("")}
           </select>
           <button type="submit">Eintrag speichern</button>
         </form>
 
-        <div style="margin-top:20px;text-align:center;">
-          <button id="minutesPageBtn" class="secondary" style="padding:6px 12px;">🕒 Tätigkeiten / Minuten</button>
-          <button id="backBtn" class="secondary" style="padding:6px 12px;">⬅️ Zurück zur Startseite</button>
+        <div style="margin-top:20px; text-align:center;">
+          <button id="backBtn" class="secondary">⬅️ Zurück zur Startseite</button>
         </div>
       `;
 
       resultsDiv.innerHTML = html;
 
-      // --- Zurück zur Startseite ---
+      // --- Zurück ---
       document.getElementById("backBtn").addEventListener("click", () => {
+        window.location.href = "/";
+      });
+
+      // --- Tätigkeiten-Seite in neuem Tab ---
+      document.getElementById("minutesPageBtn").addEventListener("click", (e) => {
+        e.preventDefault();
+        console.log("🪟 Öffne Minuten-Seite (neuer Tab):", id);
+        window.open(`/minutes.html?customer_id=${id}`, "_blank", "noopener,noreferrer");
+      });
+
+      // --- Kunden löschen ---
+      document.getElementById("deleteCustomerBtn").addEventListener("click", async () => {
+        if (!confirm("Diesen Kunden inklusive aller Einträge wirklich löschen?")) return;
+        await fetch(`/api/customer/${id}`, { method: "DELETE" });
         window.location.href = "/";
       });
 
@@ -189,56 +200,34 @@ document.addEventListener("DOMContentLoaded", () => {
         openCustomer(id);
       });
 
-      // --- Minuten-Seite Button ---
-      const minutesBtn = document.getElementById("minutesPageBtn");
-      if (minutesBtn) {
-        minutesBtn.addEventListener("click", () => {
-          console.log("🪟 Öffne Minuten-Seite in neuem Tab für Kunde:", id);
-          const link = document.createElement("a");
-          link.href = `/minutes.html?customer_id=${id}`;
-          link.target = "_blank";
-          link.rel = "noopener";
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-        });
-      }
-
-      // --- Kunde löschen ---
-      document.getElementById("deleteCustomerBtn").addEventListener("click", async () => {
-        if (!confirm("Kunden inkl. aller Einträge wirklich löschen?")) return;
-        await fetch(`/api/customer/${id}`, { method: "DELETE" });
-        window.location.href = "/";
-      });
-
     } catch (err) {
-      console.error("Fehler in openCustomer:", err);
-      resultsDiv.innerHTML = "<p>❌ Fehler beim Laden des Kunden.</p>";
+      console.error("❌ Fehler in openCustomer:", err);
+      resultsDiv.innerHTML = "<p>Fehler beim Laden des Kunden.</p>";
     }
   }
 
-  // --- Papierkorb funktioniert überall ---
-  resultsDiv.addEventListener("click", async (event) => {
-    if (event.target.classList.contains("delete-btn")) {
-      const id = event.target.dataset.id;
+  // --- Papierkorb (Event Delegation global) ---
+  document.addEventListener("click", async (e) => {
+    if (e.target.classList.contains("delete-btn")) {
+      const id = e.target.dataset.id;
       if (!confirm("Eintrag wirklich löschen?")) return;
 
       try {
-        const res = await fetch(`/api/entry/${id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Fehler beim Löschen");
-        event.target.closest("tr")?.remove();
+        await fetch(`/api/entry/${id}`, { method: "DELETE" });
         console.log("🗑️ Eintrag gelöscht:", id);
+        e.target.closest("tr").remove();
       } catch (err) {
-        console.error("Fehler beim Löschen:", err);
+        console.error("❌ Fehler beim Löschen des Eintrags:", err);
       }
     }
   });
 
-  // --- Start ---
+  // --- App-Start ---
   async function initApp() {
     await loadInstructors();
     await loadCount();
   }
   initApp();
+
   console.log("🏁 Initialisierung abgeschlossen");
 });
