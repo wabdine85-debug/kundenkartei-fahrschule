@@ -354,29 +354,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- Tätigkeiten / Minuten (oberer Button) ---
-  if (minutesTopBtn) {
-    minutesTopBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-
-      const openedCustomer =
-        document.getElementById("customerName");
-      if (!openedCustomer || !openedCustomer.dataset.id) {
-        alert(
-          "Bitte zuerst einen Kunden öffnen, um Tätigkeiten zu erfassen."
-        );
-        return;
-      }
-
-      const id = openedCustomer.dataset.id;
-      const url = `/minutes.html?customer_id=${id}`;
-      console.log(
-        "🌐 Weiterleitung zu Tätigkeiten / Minuten:",
-        url
-      );
-      window.location.href = url;
-    });
-  }
 
   // --- Hilfsfunktion: deutsches Datum → ISO ---
   function toISODate(deDate) {
