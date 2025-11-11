@@ -55,7 +55,8 @@
   </style>
 </head>
 <body>
-  <h2>Tätigkeiten / Minuten</h2>
+  <h2 id="customerNameHeader">Tätigkeiten / Minuten</h2>
+
   <p id="customerInfo"></p>
 
   <form id="minuteForm">
@@ -104,6 +105,30 @@
 
 
 <script>
+
+// --- Kundennamen oben anzeigen ---
+document.addEventListener("DOMContentLoaded", async () => {
+  const params = new URLSearchParams(window.location.search);
+  const customerId = params.get("customer_id");
+
+  if (customerId) {
+    try {
+      const res = await fetch(`/api/customer/${customerId}`);
+      if (!res.ok) throw new Error("Kunde nicht gefunden");
+      const customer = await res.json();
+
+      const header = document.getElementById("customerNameHeader");
+      if (header) {
+        header.textContent = `Tätigkeiten / Minuten – ${customer.full_name || "Unbekannter Kunde"}`;
+      }
+      document.title = `Tätigkeiten – ${customer.full_name || "Kunde"}`;
+    } catch (err) {
+      console.error("Fehler beim Laden des Kundennamens:", err);
+    }
+  }
+});
+
+
 // --- Fahrlehrer laden ---
 async function loadInstructors() {
   try {
