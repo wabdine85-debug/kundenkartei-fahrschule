@@ -113,7 +113,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (customerId) {
     try {
-      const res = await fetch(`/api/customer/${customerId}`);
+      const res = await fetch(`/api/customerbasic/${customerId}`);
+
       if (!res.ok) throw new Error("Kunde nicht gefunden");
       const customer = await res.json();
 
